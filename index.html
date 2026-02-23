@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Voz Lectora">
+<meta name="theme-color" content="#0a0a0c">
+<title>Voz Lectora</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- PDF.js y Mammoth cargados al inicio para garantizar disponibilidad -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+
+<style>
+:root {
+  --bg:#0a0a0c; --surface:#141418; --s2:#1e1e24; --s3:#28282f;
+  --accent:#d4a843; --adim:rgba(212,168,67,.13); --aglow:rgba(212,168,67,.28);
+  --text:#f0ede6; --muted:#6b6b75; --danger:#e05555; --ok:#4caf7d;
+  --blue:#4c8fe0; --green:#4ce08a; --orange:#e08a4c; --purple:#a04ce0;
+  --sb:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
+  font-family:'DM Sans',sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+
+#app{display:flex;flex-direction:column;height:100dvh;max-width:680px;margin:0 auto}
+
+/* Header */
+#hdr{display:flex;align-items:center;padding:12px 16px 10px;gap:7px;flex-shrink:0;
+  border-bottom:1px solid var(--s2)}
+.logo-main{font-family:'Playfair Display',serif;font-size:19px;font-weight:900;
+  color:var(--accent);letter-spacing:3px;line-height:1}
+.logo-sub{font-size:9px;color:var(--muted);letter-spacing:4px}
+.spacer{flex:1}
+.hbtn{display:flex;align-items:center;gap:4px;padding:7px 11px;
+  background:var(--surface);border:1px solid var(--s3);border-radius:10px;
+  color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;
+  cursor:pointer;transition:all .15s;white-space:nowrap}
+.hbtn svg{width:13px;height:13px}
+.hbtn:active{transform:scale(.94)}
+.hbtn.act{background:var(--adim);border-color:var(--accent);color:var(--accent)}
+.hbtn.dis{opacity:.3;pointer-events:none}
+
+/* Tabs */
+#tabs{display:flex;align-items:center;gap:5px;padding:8px 16px 5px;
+  flex-shrink:0;overflow-x:auto;scrollbar-width:none}
+#tabs::-webkit-scrollbar{display:none}
+.tab{display:flex;align-items:center;gap:5px;padding:5px 12px;
+  background:var(--surface);border:1px solid var(--s3);border-radius:8px;
+  font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;
+  white-space:nowrap;transition:all .15s;flex-shrink:0;max-width:130px}
+.tab span{overflow:hidden;text-overflow:ellipsis}
+.tab.act{background:var(--accent);border-color:var(--accent);color:#0a0a0c}
+.tab-x{width:13px;height:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tab-add{width:30px;height:30px;background:var(--surface);border:1px solid var(--s3);
+  border-radius:8px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;flex-shrink:0;color:var(--muted)}
+
+/* Stats */
+#stats{display:none;align-items:center;gap:5px;padding:4px 16px;flex-shrink:0}
+.chip{padding:3px 8px;background:var(--adim);border:1px solid rgba(212,168,67,.2);
+  border-radius:5px;font-size:10px;font-weight:700;color:var(--accent)}
+.chip.bl{background:rgba(76,143,224,.12);border-color:rgba(76,143,224,.2);color:var(--blue)}
+#clrbtn{margin-left:auto;display:flex;align-items:center;gap:3px;padding:3px 8px;
+  background:var(--s2);border-radius:5px;font-size:11px;color:var(--muted);cursor:pointer}
+
+/* Progress */
+#pgwrap{padding:3px 16px 5px;flex-shrink:0;display:none}
+#pgtrack{height:3px;background:var(--s2);border-radius:2px;overflow:hidden}
+#pgfill{height:100%;background:var(--accent);border-radius:2px;width:0%;transition:width .25s}
+#pglabels{display:flex;justify-content:space-between;margin-top:3px;
+  font-size:10px;color:var(--muted)}
+#pgstatus{color:var(--accent)}
+
+/* Text wrap */
+#txtwrap{flex:1;margin:0 14px;background:var(--surface);border:1px solid var(--s2);
+  border-radius:14px;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+
+/* Toolbar */
+#tbar{display:none;align-items:center;gap:5px;padding:7px 12px;
+  background:var(--s2);border-bottom:1px solid var(--s3);flex-shrink:0;flex-wrap:wrap}
+#tbar.on{display:flex}
+.tbtn{display:flex;align-items:center;gap:3px;padding:5px 9px;
+  background:var(--surface);border:1px solid transparent;border-radius:6px;
+  font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .13s}
+.tbtn svg{width:12px;height:12px}
+.tbtn.act{background:var(--adim);border-color:var(--accent);color:var(--accent)}
+.cdot{width:17px;height:17px;border-radius:50%;cursor:pointer;
+  border:2px solid transparent;transition:all .13s;flex-shrink:0}
+.cdot.sel{width:21px;height:21px;border-color:#fff;box-shadow:0 0 7px currentColor}
+.tsep{width:1px;height:18px;background:var(--s3);margin:0 2px}
+
+/* Reader / Editor */
+#reader{flex:1;overflow-y:auto;padding:18px;font-size:16px;line-height:1.85;
+  color:var(--text);font-family:Georgia,serif;-webkit-overflow-scrolling:touch;
+  word-break:break-word;cursor:text;min-height:0;display:block}
+#reader:empty::before{content:'Carga un documento o pega texto aquí...';
+  color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px}
+#editor{display:none;flex:1;padding:18px;font-size:15px;line-height:1.8;
+  color:var(--text);background:transparent;border:none;outline:none;
+  resize:none;font-family:'DM Sans',sans-serif;-webkit-overflow-scrolling:touch;min-height:0}
+
+/* Highlight styles */
+.hl{border-radius:3px;padding:0 1px;cursor:pointer;font-weight:600;
+  text-decoration:underline;text-underline-offset:3px}
+.hy{background:rgba(212,168,67,.25);text-decoration-color:var(--accent)}
+.hb{background:rgba(76,143,224,.22);text-decoration-color:var(--blue)}
+.hg{background:rgba(76,224,138,.2);text-decoration-color:var(--green)}
+.ho{background:rgba(224,138,76,.22);text-decoration-color:var(--orange)}
+.hp{background:rgba(160,76,224,.2);text-decoration-color:var(--purple)}
+.tw{background:var(--accent);color:#0a0a0c;border-radius:3px;font-weight:800;padding:0 2px}
+
+/* Empty state */
+#empty{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  text-align:center;pointer-events:none}
+#empty svg{width:48px;height:48px;color:var(--muted);opacity:.3;margin-bottom:12px}
+#empty p{color:var(--muted);font-size:14px;line-height:1.6}
+#empty small{color:var(--muted);opacity:.45;font-size:11px;display:block;margin-top:5px}
+
+/* Player */
+#player{flex-shrink:0;margin:8px 14px;margin-bottom:calc(8px + var(--sb));
+  background:var(--surface);border:1px solid var(--s2);border-radius:18px;padding:14px 18px}
+#sprow{display:flex;align-items:center;gap:9px;margin-bottom:12px}
+#sprow label{font-size:11px;color:var(--muted);white-space:nowrap}
+#spslider{flex:1;-webkit-appearance:none;height:3px;background:var(--s3);
+  border-radius:2px;outline:none}
+#spslider::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;
+  background:var(--accent);border-radius:50%;cursor:pointer;box-shadow:0 0 7px var(--aglow)}
+#spval{font-size:12px;font-weight:700;color:var(--accent);min-width:30px;text-align:right}
+#ctrlrow{display:flex;align-items:center;justify-content:center;gap:14px}
+.cbtn{width:46px;height:46px;background:var(--s2);border:none;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);transition:all .15s}
+.cbtn:active{transform:scale(.92)}
+.cbtn svg{width:20px;height:20px}
+#playbtn{width:64px;height:64px;background:var(--accent);border:none;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;color:#0a0a0c;
+  box-shadow:0 0 20px var(--aglow);transition:all .15s}
+#playbtn:active{transform:scale(.93)}
+#playbtn:disabled{background:var(--s3);box-shadow:none;cursor:not-allowed}
+#playbtn svg{width:30px;height:30px}
+#sbadge{padding:5px 11px;border-radius:20px;font-size:11px;font-weight:700;
+  background:var(--s2);color:var(--muted);border:1px solid var(--s3);
+  min-width:68px;text-align:center;transition:all .18s}
+#sbadge.pl{background:var(--adim);color:var(--accent);border-color:var(--accent)}
+#sbadge.pa{background:rgba(224,138,76,.1);color:var(--orange);border-color:rgba(224,138,76,.3)}
+
+/* Export button */
+#expbtn{display:flex;align-items:center;justify-content:center;gap:6px;
+  width:100%;margin-top:10px;padding:10px;background:var(--adim);
+  border:1px solid rgba(212,168,67,.25);border-radius:11px;
+  font-size:12px;font-weight:600;color:var(--accent);cursor:pointer;transition:all .15s}
+#expbtn:hover{background:rgba(212,168,67,.2)}
+#expbtn:disabled{opacity:.3;cursor:not-allowed}
+#expbtn svg{width:14px;height:14px}
+
+/* Offline badge */
+#offbadge{display:none;position:fixed;top:10px;right:10px;
+  background:var(--s2);border:1px solid var(--orange);color:var(--orange);
+  border-radius:20px;padding:4px 10px;font-size:10px;font-weight:700;z-index:50;
+  gap:4px;align-items:center}
+#offbadge.on{display:flex}
+
+/* Overlays */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:100;
+  display:flex;align-items:flex-end;animation:fi .18s}
+.overlay.ctr{align-items:center;justify-content:center;padding:18px}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+.sheet{width:100%;background:var(--surface);border-radius:22px 22px 0 0;
+  padding:18px 22px calc(22px + var(--sb));animation:su .26s cubic-bezier(.16,1,.3,1);
+  max-height:88dvh;overflow-y:auto}
+@keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.handle{width:38px;height:4px;background:var(--s3);border-radius:2px;margin:0 auto 16px}
+.stitle{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:2px;
+  text-transform:uppercase;margin-bottom:12px}
+.mbox{background:var(--surface);border-radius:18px;padding:22px;width:100%;
+  max-width:420px;animation:sc .2s cubic-bezier(.16,1,.3,1)}
+@keyframes sc{from{transform:scale(.95);opacity:0}to{transform:scale(1);opacity:1}}
+.mtitle{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;
+  color:var(--text);margin-bottom:5px}
+.msub{font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5}
+
+/* Import options */
+.iopt{display:flex;align-items:center;gap:12px;padding:12px 14px;
+  background:var(--s2);border-radius:12px;cursor:pointer;margin-bottom:7px;
+  border:1px solid transparent;transition:all .13s}
+.iopt:hover{border-color:var(--accent)}
+.iopt:active{transform:scale(.98)}
+.iico{width:40px;height:40px;background:var(--adim);border-radius:9px;
+  display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0}
+.iico svg{width:18px;height:18px}
+.ititle{font-size:13px;font-weight:600;color:var(--text)}
+.isub{font-size:11px;color:var(--muted)}
+
+/* Summary options */
+.sopt{display:flex;align-items:center;gap:12px;padding:13px 14px;
+  background:var(--s2);border-radius:12px;cursor:pointer;margin-bottom:7px;
+  border:1.5px solid transparent;transition:all .15s}
+.sopt.sel{background:var(--adim);border-color:var(--accent)}
+.sopticon{font-size:20px;flex-shrink:0}
+
+/* Fields */
+.field{width:100%;background:var(--s2);border:1px solid var(--s3);border-radius:11px;
+  padding:12px 13px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+  line-height:1.6;outline:none;resize:none;transition:border-color .15s;margin-bottom:12px}
+.field:focus{border-color:var(--accent)}
+.brow{display:flex;gap:8px;justify-content:flex-end}
+.btn{padding:9px 18px;border-radius:11px;font-family:'DM Sans',sans-serif;
+  font-size:13px;font-weight:700;cursor:pointer;border:none;transition:all .15s}
+.btn:active{transform:scale(.96)}
+.bg{background:transparent;color:var(--muted)}
+.ba{background:var(--accent);color:#0a0a0c}
+.ba:disabled{opacity:.4;cursor:not-allowed}
+
+/* Settings */
+.slabel{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted);
+  font-weight:600;margin-bottom:7px}
+.slabel svg{width:13px;height:13px}
+.lgrid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}
+.lbtn{padding:6px 12px;background:var(--s2);border:1px solid transparent;
+  border-radius:8px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .13s}
+.lbtn.sel{background:var(--adim);border-color:var(--accent);color:var(--accent)}
+.prow{display:flex;align-items:center;gap:9px;margin-bottom:12px}
+.prow label{font-size:11px;color:var(--muted);white-space:nowrap;min-width:75px}
+.pslider{flex:1;-webkit-appearance:none;height:3px;background:var(--s3);
+  border-radius:2px;outline:none}
+.pslider::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;
+  background:var(--accent);border-radius:50%;cursor:pointer}
+.pval{font-size:12px;font-weight:700;color:var(--accent);min-width:32px;text-align:right}
+
+/* AI spinner */
+.spin{display:inline-block;width:16px;height:16px;border:2px solid var(--s3);
+  border-top-color:var(--accent);border-radius:50%;animation:sp .6s linear infinite;
+  vertical-align:middle;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* Toast */
+#toast{position:fixed;bottom:calc(18px + var(--sb));left:50%;
+  transform:translateX(-50%) translateY(16px);background:var(--s2);
+  border:1px solid var(--s3);border-radius:11px;padding:9px 16px;
+  font-size:12px;font-weight:600;color:var(--text);opacity:0;pointer-events:none;
+  transition:all .25s;z-index:999;white-space:nowrap;display:flex;align-items:center;gap:7px}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast svg{width:14px;height:14px}
+
+/* Context menu */
+#ctxmenu{position:fixed;background:var(--s2);border:1px solid var(--s3);
+  border-radius:11px;padding:5px;z-index:200;box-shadow:0 8px 28px rgba(0,0,0,.6);
+  display:none;min-width:150px}
+#ctxmenu.on{display:block;animation:sc .13s}
+.citem{display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:7px;
+  font-size:12px;font-weight:600;cursor:pointer;color:var(--text);transition:background .1s}
+.citem:hover{background:var(--s3)}
+.citem svg{width:13px;height:13px;color:var(--accent)}
+.csep{height:1px;background:var(--s3);margin:3px 0}
+
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--s3);border-radius:2px}
+</style>
+</head>
+<body>
+
+<div id="offbadge">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.56 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
+  Sin internet
+</div>
+
+<div id="app">
+  <!-- HEADER -->
+  <div id="hdr">
+    <div class="logo-main">VOZ</div>
+    <div style="margin-right:auto"><div class="logo-sub">LECTORA</div></div>
+    <button class="hbtn dis" id="btnsum" onclick="openSummary()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/></svg>Resumir
+    </button>
+    <button class="hbtn" onclick="openImport()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>Cargar
+    </button>
+    <button class="hbtn" id="btnsett" onclick="toggleSettings()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Ajustes
+    </button>
+  </div>
+
+  <!-- TABS -->
+  <div id="tabs"></div>
+
+  <!-- STATS -->
+  <div id="stats">
+    <span class="chip" id="cwords">0 palabras</span>
+    <span class="chip" id="ctime">~0 min</span>
+    <span class="chip bl" id="chl" style="display:none">0 resaltados</span>
+    <div id="clrbtn" onclick="clearDoc()">
+      <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>Limpiar
+    </div>
+  </div>
+
+  <!-- PROGRESS -->
+  <div id="pgwrap">
+    <div id="pgtrack"><div id="pgfill"></div></div>
+    <div id="pglabels"><span id="pgpct">0% leído</span><span id="pgstatus"></span></div>
+  </div>
+
+  <!-- TEXT AREA -->
+  <div id="txtwrap">
+    <div id="tbar">
+      <button class="tbtn act" id="btnedit" onclick="toggleEdit()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>Editar
+      </button>
+      <div class="tsep"></div>
+      <div style="display:flex;gap:5px;align-items:center" id="hlcols">
+        <div class="cdot sel" style="background:var(--accent)" data-c="y" onclick="selColor(this)"></div>
+        <div class="cdot" style="background:var(--blue)"   data-c="b" onclick="selColor(this)"></div>
+        <div class="cdot" style="background:var(--green)"  data-c="g" onclick="selColor(this)"></div>
+        <div class="cdot" style="background:var(--orange)" data-c="o" onclick="selColor(this)"></div>
+        <div class="cdot" style="background:var(--purple)" data-c="p" onclick="selColor(this)"></div>
+      </div>
+      <div class="tsep"></div>
+      <button class="tbtn" id="btnclhl" onclick="clearHighlights()" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6l-1 14H6L5 6"/></svg>Limpiar resaltes
+      </button>
+    </div>
+
+    <div style="position:relative;flex:1;display:flex;flex-direction:column;min-height:0">
+      <div id="empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <p>Carga un documento o<br>pega tu texto aquí</p>
+        <small>TXT · PDF · Word (.docx)</small>
+      </div>
+      <div id="reader" onmouseup="onSel(event)" ontouchend="onSel(event)"></div>
+      <textarea id="editor" placeholder="Escribe o edita el texto aquí..." oninput="onEdit()"></textarea>
+    </div>
+  </div>
+
+  <!-- PLAYER -->
+  <div id="player">
+    <div id="sprow">
+      <label>Velocidad</label>
+      <input type="range" id="spslider" min="0.3" max="1.5" step="0.05" value="0.8" oninput="onSpeed()">
+      <span id="spval">1.0×</span>
+    </div>
+    <div id="ctrlrow">
+      <button class="cbtn" onclick="stopTTS()">
+        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+      </button>
+      <button id="playbtn" onclick="togglePlay()" disabled>
+        <svg id="iplay" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+        <svg id="ipause" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      </button>
+      <div id="sbadge">Listo</div>
+    </div>
+    <button id="expbtn" onclick="openExport()" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Guardar / Descargar audio
+    </button>
+  </div>
+</div>
+
+<!-- CONTEXT MENU -->
+<div id="ctxmenu">
+  <div class="citem" onclick="applyHL()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Resaltar
+  </div>
+  <div class="csep"></div>
+  <div class="citem" onclick="removeHL()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6l-1 14H6L5 6"/></svg>Quitar resalte
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="tmsg"></span>
+</div>
+
+<div id="oc"></div><!-- overlay container -->
+
+<input type="file" id="filein" accept=".txt,.pdf,.docx" style="display:none" onchange="onFile(event)">
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+const API_KEY = 'TU_API_KEY_AQUI'; // ← reemplaza con tu clave sk-ant-...
+
+// ── STATE ───────────────────────────────────────────────────────────────────
+const S = {
+  docs: [{ id:1, title:'Documento 1', text:'', hl:[] }],
+  ai: 0,          // active doc index
+  hlColor: 'y',   // active highlight color
+  tts: 'stopped', // playing | paused | stopped
+  pitch: 1.0,
+  lang: 'es-ES',
+  editMode: false,
+};
+
+// ── UTILS ───────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const doc = () => S.docs[S.ai];
+let _selRange = null;
+let _voices = [];
+
+function toast(msg, ok=true) {
+  $('tmsg').textContent = msg;
+  const t = $('toast');
+  t.querySelector('svg').style.color = ok ? 'var(--ok)' : 'var(--danger)';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function closeOC() {
+  $('oc').innerHTML = '';
+  $('ctxmenu').classList.remove('on');
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+          .replace(/"/g,'&quot;').replace(/\n/g,'<br>');
+}
+
+// ── TABS ────────────────────────────────────────────────────────────────────
+function renderTabs() {
+  const bar = $('tabs');
+  bar.innerHTML = '';
+  S.docs.forEach((d,i) => {
+    const t = document.createElement('div');
+    t.className = 'tab' + (i===S.ai?' act':'');
+    const lbl = d.title.length > 13 ? d.title.slice(0,12)+'…' : d.title;
+    t.innerHTML = `<span ondblclick="renameTab(${i})">${lbl}</span>`;
+    if (S.docs.length > 1) {
+      const x = document.createElement('div');
+      x.className = 'tab-x';
+      x.innerHTML = `<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>`;
+      x.onclick = e => { e.stopPropagation(); closeTab(i); };
+      t.appendChild(x);
+    }
+    t.onclick = () => switchTab(i);
+    bar.appendChild(t);
+  });
+  if (S.docs.length < 3) {
+    const a = document.createElement('div');
+    a.className = 'tab-add';
+    a.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>`;
+    a.onclick = addTab;
+    bar.appendChild(a);
+  }
+}
+
+function switchTab(i) { stopTTS(); S.ai=i; S.editMode=false; renderAll(); }
+function addTab() {
+  if (S.docs.length>=3) { toast('Máximo 3 documentos',false); return; }
+  stopTTS();
+  S.docs.push({id:Date.now(),title:`Documento ${S.docs.length+1}`,text:'',hl:[]});
+  S.ai = S.docs.length-1; S.editMode=false; renderAll();
+}
+function closeTab(i) {
+  stopTTS(); S.docs.splice(i,1);
+  S.ai = Math.min(S.ai, S.docs.length-1); renderAll();
+}
+function renameTab(i) {
+  const n = prompt('Nuevo nombre:',S.docs[i].title);
+  if (n && n.trim()) { S.docs[i].title=n.trim(); renderTabs(); }
+}
+function clearDoc() { stopTTS(); doc().text=''; doc().hl=[]; S.editMode=false; renderAll(); }
+
+// ── RENDER ──────────────────────────────────────────────────────────────────
+function renderAll() {
+  renderTabs();
+  renderStats();
+  renderProgress(0);
+  renderTextArea();
+  updatePlayer();
+}
+
+function renderStats() {
+  const text = doc().text;
+  const hasTxt = text.trim().length > 0;
+  $('stats').style.display = hasTxt ? 'flex' : 'none';
+  $('pgwrap').style.display = hasTxt ? 'block' : 'none';
+  $('empty').style.display = hasTxt ? 'none' : '';
+  $('tbar').classList.toggle('on', hasTxt);
+  $('btnsum').classList.toggle('dis', !hasTxt);
+  $('playbtn').disabled = !hasTxt;
+  $('expbtn').disabled = !hasTxt;
+  if (!hasTxt) return;
+
+  const words = text.trim().split(/\s+/).length;
+  const speed = parseFloat($('spslider').value);
+  const wpm = Math.max(60, Math.round(130 * (speed / 0.8)));
+  const mins = Math.max(1, Math.ceil(words/wpm));
+  $('cwords').textContent = `${words.toLocaleString()} palabras`;
+  $('ctime').textContent = `~${mins} min`;
+  const hls = doc().hl.length;
+  $('chl').textContent = `${hls} resaltados`;
+  $('chl').style.display = hls > 0 ? '' : 'none';
+  $('btnclhl').style.display = hls > 0 ? '' : 'none';
+}
+
+function renderProgress(pct) {
+  $('pgfill').style.width = `${pct}%`;
+  $('pgpct').textContent = `${Math.round(pct)}% leído`;
+}
+
+function renderTextArea() {
+  const isEdit = S.editMode;
+  $('reader').style.display = isEdit ? 'none' : 'block';
+  $('editor').style.display = isEdit ? 'block' : 'none';
+  $('hlcols').style.display = isEdit ? 'none' : 'flex';
+  if (isEdit) {
+    $('editor').value = doc().text;
+    $('btnedit').classList.add('act');
+    $('btnedit').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Leer`;
+  } else {
+    $('btnedit').classList.remove('act');
+    $('btnedit').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>Editar`;
+    renderReader();
+  }
+}
+
+function renderReader(ts=-1, te=-1) {
+  const text = doc().text;
+  if (!text) { $('reader').innerHTML=''; return; }
+  const hls = [...doc().hl].sort((a,b)=>a.s-b.s);
+  const bps = new Set([0,text.length]);
+  hls.forEach(h=>{bps.add(h.s);bps.add(h.e);});
+  if (ts>=0&&te>ts){bps.add(Math.max(0,ts));bps.add(Math.min(text.length,te));}
+  const sorted=[...bps].sort((a,b)=>a-b);
+  let html='';
+  const colorClass={y:'hy',b:'hb',g:'hg',o:'ho',p:'hp'};
+  for(let i=0;i<sorted.length-1;i++){
+    const s=sorted[i],e=sorted[i+1];
+    if(s>=e)continue;
+    const seg=esc(text.slice(s,e));
+    const isTts=ts>=0&&s>=ts&&e<=te;
+    const hl=hls.find(h=>h.s<=s&&h.e>=e);
+    if(isTts) html+=`<mark class="tw">${seg}</mark>`;
+    else if(hl) html+=`<span class="hl ${colorClass[hl.c]||'hy'}" data-s="${hl.s}" data-e="${hl.e}">${seg}</span>`;
+    else html+=seg;
+  }
+  $('reader').innerHTML=html;
+}
+
+// ── EDIT MODE ───────────────────────────────────────────────────────────────
+function toggleEdit() {
+  if (S.editMode) { doc().text=$('editor').value; doc().hl=[]; }
+  S.editMode=!S.editMode; stopTTS(); renderStats(); renderTextArea();
+}
+function onEdit() { doc().text=$('editor').value; renderStats(); }
+
+// ── HIGHLIGHTS ──────────────────────────────────────────────────────────────
+function selColor(el) {
+  document.querySelectorAll('.cdot').forEach(d=>d.classList.remove('sel'));
+  el.classList.add('sel'); S.hlColor=el.dataset.c;
+}
+
+function onSel(e) {
+  const sel=window.getSelection();
+  if(!sel||sel.isCollapsed||!sel.rangeCount)return;
+  const range=sel.getRangeAt(0);
+  const reader=$('reader');
+  if(!reader.contains(range.startContainer))return;
+  const pre=document.createRange();
+  pre.setStart(reader,0); pre.setEnd(range.startContainer,range.startOffset);
+  const s=pre.toString().length;
+  const txt=range.toString();
+  if(!txt.trim())return;
+  _selRange={s,e:s+txt.length};
+  const rect=range.getBoundingClientRect();
+  const menu=$('ctxmenu');
+  const top=Math.min(rect.bottom+window.scrollY+4, window.innerHeight-80);
+  const left=Math.max(8, Math.min(rect.left, window.innerWidth-165));
+  menu.style.top=`${top}px`; menu.style.left=`${left}px`;
+  menu.classList.add('on');
+  e.stopPropagation();
+}
+
+document.addEventListener('click', e=>{
+  if(!$('ctxmenu').contains(e.target)) $('ctxmenu').classList.remove('on');
+});
+
+function applyHL() {
+  if(!_selRange)return;
+  const {s,e}=_selRange;
+  doc().hl=doc().hl.filter(h=>h.e<=s||h.s>=e);
+  doc().hl.push({s,e,c:S.hlColor});
+  $('ctxmenu').classList.remove('on');
+  window.getSelection()?.removeAllRanges();
+  renderStats(); renderReader();
+}
+
+function removeHL() {
+  if(!_selRange)return;
+  doc().hl=doc().hl.filter(h=>!(h.s<=_selRange.s&&h.e>=_selRange.s));
+  $('ctxmenu').classList.remove('on');
+  renderStats(); renderReader();
+}
+
+function clearHighlights() { doc().hl=[]; renderStats(); renderReader(); }
+
+// ── TTS ─────────────────────────────────────────────────────────────────────
+const synth=window.speechSynthesis;
+let _utt=null;
+
+window.speechSynthesis.onvoiceschanged=()=>{ _voices=synth.getVoices(); };
+
+function buildReadText(text,hls) {
+  if(!hls.length)return text;
+  const sorted=[...hls].sort((a,b)=>a.s-b.s);
+  let out='',cur=0;
+  sorted.forEach(h=>{
+    if(h.s>cur)out+=text.slice(cur,h.s);
+    out+='... '+text.slice(h.s,h.e)+' ...';
+    cur=h.e;
+  });
+  if(cur<text.length)out+=text.slice(cur);
+  return out;
+}
+
+function togglePlay() {
+  if(S.tts==='playing')pauseTTS();
+  else if(S.tts==='paused')resumeTTS();
+  else startTTS();
+}
+
+function startTTS() {
+  const text=doc().text; if(!text)return;
+  synth.cancel();
+  const readText=buildReadText(text,doc().hl);
+  _utt=new SpeechSynthesisUtterance(readText);
+  _utt.lang=S.lang; _utt.rate=parseFloat($('spslider').value); _utt.pitch=S.pitch;
+  const v=_voices.find(v=>v.lang===S.lang)||_voices.find(v=>v.lang.startsWith(S.lang.slice(0,2)));
+  if(v)_utt.voice=v;
+  _utt.onstart=()=>setTTS('playing');
+  _utt.onpause=()=>setTTS('paused');
+  _utt.onresume=()=>setTTS('playing');
+  _utt.onend=()=>{ setTTS('stopped'); renderReader(); renderProgress(100); };
+  _utt.onerror=()=>setTTS('stopped');
+  _utt.onboundary=e=>{
+    if(e.name!=='word')return;
+    const pct=(e.charIndex/readText.length)*100;
+    renderProgress(pct);
+    const ratio=e.charIndex/readText.length;
+    const approx=Math.round(ratio*text.length);
+    const end=Math.min(approx+(e.charLength||5),text.length);
+    renderReader(approx,end);
+  };
+  synth.speak(_utt);
+}
+
+function pauseTTS(){synth.pause();setTTS('paused');}
+function resumeTTS(){synth.resume();setTTS('playing');}
+function stopTTS(){synth.cancel();setTTS('stopped');renderReader();renderProgress(0);}
+function setTTS(s){S.tts=s;updatePlayer();}
+
+function updatePlayer() {
+  const pl=S.tts==='playing', pa=S.tts==='paused';
+  const b=$('sbadge');
+  b.textContent=pl?'Leyendo':pa?'Pausado':'Listo';
+  b.className=pl?'pl':pa?'pa':'';
+  $('iplay').style.display=pl?'none':'';
+  $('ipause').style.display=pl?'':'none';
+  $('pgstatus').textContent=pl?'Leyendo...':pa?'Pausado':'';
+}
+
+function onSpeed() {
+  const v=parseFloat($('spslider').value);
+  $('spval').textContent=`${v.toFixed(2).replace(/\.?0+$/,'')}×`;
+  renderStats();
+  if(S.tts==='playing'){stopTTS();startTTS();}
+}
+
+// ── FILE IMPORT ──────────────────────────────────────────────────────────────
+function openImport() {
+  $('oc').innerHTML=`
+  <div class="overlay" onclick="closeOC()">
+    <div class="sheet" onclick="event.stopPropagation()">
+      <div class="handle"></div>
+      <div class="stitle">¿Qué quieres cargar?</div>
+      <div class="iopt" onclick="closeOC();$('filein').click()">
+        <div class="iico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+        <div><div class="ititle">Abrir archivo</div><div class="isub">TXT, PDF o Word (.docx)</div></div>
+      </div>
+      <div class="iopt" onclick="closeOC();openPaste()">
+        <div class="iico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></div>
+        <div><div class="ititle">Pegar texto o resumen</div><div class="isub">Escribe o pega directamente</div></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function onFile(e) {
+  const file=e.target.files[0]; if(!file)return;
+  const ext=file.name.split('.').pop().toLowerCase();
+  toast('Leyendo archivo...');
+  try {
+    let text='';
+    if(ext==='txt') {
+      text=await file.text();
+    } else if(ext==='pdf') {
+      text=await readPdf(file);
+    } else if(ext==='docx') {
+      text=await readDocx(file);
+    } else {
+      toast('Formato no soportado',false); return;
+    }
+    if(!text.trim()){toast('El archivo está vacío o no se pudo leer',false);return;}
+    loadText(text, file.name.replace(/\.[^.]+$/,''));
+  } catch(err) {
+    toast('Error al leer: '+err.message,false);
+    console.error(err);
+  }
+  e.target.value='';
+}
+
+async function readPdf(file) {
+  // PDF.js ya está cargado en el head
+  if(!window.pdfjsLib) throw new Error('PDF.js no disponible');
+  pdfjsLib.GlobalWorkerOptions.workerSrc=
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const ab=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:ab}).promise;
+  let out='';
+  for(let i=1;i<=pdf.numPages;i++){
+    const page=await pdf.getPage(i);
+    const content=await page.getTextContent();
+    out+=content.items.map(it=>it.str).join(' ')+'\n\n';
+  }
+  return out;
+}
+
+async function readDocx(file) {
+  if(!window.mammoth) throw new Error('Mammoth no disponible');
+  const ab=await file.arrayBuffer();
+  const result=await mammoth.extractRawText({arrayBuffer:ab});
+  return result.value;
+}
+
+function loadText(text, title='') {
+  stopTTS();
+  doc().text=text; doc().hl=[];
+  if(title) doc().title=title.slice(0,22);
+  S.editMode=false;
+  renderAll();
+  toast('Documento cargado ✓');
+}
+
+function openPaste() {
+  $('oc').innerHTML=`
+  <div class="overlay ctr" onclick="closeOC()">
+    <div class="mbox" onclick="event.stopPropagation()">
+      <div class="mtitle">Pegar texto</div>
+      <div class="msub">Escribe o pega el texto que quieres leer</div>
+      <textarea class="field" id="pastef" rows="7" placeholder="Pega tu texto aquí..."></textarea>
+      <div class="brow">
+        <button class="btn bg" onclick="closeOC()">Cancelar</button>
+        <button class="btn ba" onclick="applyPaste()">Usar texto</button>
+      </div>
+    </div>
+  </div>`;
+  setTimeout(()=>$('pastef')?.focus(),80);
+}
+
+function applyPaste() {
+  const t=$('pastef')?.value.trim(); if(!t)return;
+  closeOC(); loadText(t);
+}
+
+// ── EXPORT / DOWNLOAD ────────────────────────────────────────────────────────
+function openExport() {
+  const text=doc().text; if(!text)return;
+  const readText=buildReadText(text,doc().hl);
+  const fname=(doc().title||'vozlectora').replace(/[^\w\s-]/g,'').trim()||'vozlectora';
+  const canRec=!!(window.MediaRecorder&&navigator.mediaDevices?.getUserMedia);
+  const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)&&!window.MSStream;
+
+  const audioOpt = (canRec&&!isIOS) ? `
+    <div class="iopt" onclick="closeOC();recordAudio(${JSON.stringify(readText)},${JSON.stringify(fname)})">
+      <div class="iico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></div>
+      <div><div class="ititle">Grabar y guardar audio (.webm)</div><div class="isub">Funciona en Chrome y Firefox — Android y PC</div></div>
+    </div>` : `
+    <div class="iopt" style="opacity:.35;cursor:not-allowed">
+      <div class="iico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg></div>
+      <div><div class="ititle">Grabar audio</div><div class="isub">No disponible en Safari / iOS — usa el .txt</div></div>
+    </div>`;
+
+  $('oc').innerHTML=`
+  <div class="overlay" onclick="closeOC()">
+    <div class="sheet" onclick="event.stopPropagation()">
+      <div class="handle"></div>
+      <div class="stitle">Guardar para escuchar sin internet</div>
+      ${audioOpt}
+      <div class="iopt" onclick="closeOC();dlTxt(${JSON.stringify(readText)},${JSON.stringify(fname)})">
+        <div class="iico" style="background:rgba(76,143,224,.12)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <div><div class="ititle" style="color:var(--blue)">Guardar como texto (.txt)</div>
+          <div class="isub">En iPhone: ábrelo con la app "Voz" para escucharlo offline</div></div>
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin-top:12px;line-height:1.6;
+        padding:10px;background:var(--s2);border-radius:10px">
+        📱 <strong style="color:var(--text)">iPhone (Safari/Chrome/Firefox):</strong>
+        descarga el <strong style="color:var(--blue)">.txt</strong> → abre la app <strong style="color:var(--accent)">Voz</strong>
+        (preinstalada en iOS) → importa el archivo → escúchalo sin internet.<br><br>
+        🤖 <strong style="color:var(--text)">Android / PC:</strong>
+        usa el audio <strong style="color:var(--accent)">.webm</strong> directamente en cualquier reproductor.
+      </p>
+    </div>
+  </div>`;
+}
+
+async function recordAudio(text, fname) {
+  try {
+    toast('Grabando... espera que termine de leer');
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    const mime=MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ?'audio/webm;codecs=opus':'audio/webm';
+    const rec=new MediaRecorder(stream,{mimeType:mime});
+    const chunks=[];
+    rec.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
+    rec.onstop=()=>{
+      const blob=new Blob(chunks,{type:mime});
+      dlBlob(blob,`${fname}.webm`);
+      stream.getTracks().forEach(t=>t.stop());
+      toast('Audio guardado ✓');
+    };
+    rec.start(100);
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang=S.lang; u.rate=parseFloat($('spslider').value); u.pitch=S.pitch;
+    const v=_voices.find(v=>v.lang===S.lang)||_voices.find(v=>v.lang.startsWith(S.lang.slice(0,2)));
+    if(v)u.voice=v;
+    u.onend=()=>setTimeout(()=>rec.stop(),400);
+    u.onerror=()=>{rec.stop();toast('Error al grabar',false);};
+    synth.cancel(); synth.speak(u);
+  } catch(err) {
+    toast('No se pudo acceder al micrófono: '+err.message,false);
+  }
+}
+
+function dlTxt(text,fname) {
+  dlBlob(new Blob([text],{type:'text/plain;charset=utf-8'}),`${fname}.txt`);
+  toast('Texto guardado ✓');
+}
+
+function dlBlob(blob,filename) {
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+
+// ── AI SUMMARY ───────────────────────────────────────────────────────────────
+const STYPES=[
+  {id:'short', e:'📝', t:'Resumen corto', s:'1 párrafo con la idea principal',
+   p:'Haz un resumen conciso en 1 párrafo del siguiente texto.'},
+  {id:'bullets',e:'🔑',t:'Puntos clave',s:'Lista de los puntos más importantes',
+   p:'Extrae los puntos clave del siguiente texto en formato de lista con viñetas (•).'},
+  {id:'detailed',e:'📖',t:'Resumen detallado',s:'Completo por secciones',
+   p:'Haz un resumen detallado por secciones del siguiente texto.'},
+];
+let _stype='short';
+
+function openSummary() {
+  const opts=STYPES.map(t=>`
+    <div class="sopt${t.id===_stype?' sel':''}" onclick="selStype('${t.id}',this)">
+      <div class="sopticon">${t.e}</div>
+      <div><div style="font-size:13px;font-weight:600;color:var(--text)">${t.t}</div>
+        <div style="font-size:11px;color:var(--muted)">${t.s}</div></div>
+    </div>`).join('');
+  $('oc').innerHTML=`
+  <div class="overlay" onclick="closeOC()">
+    <div class="sheet" onclick="event.stopPropagation()">
+      <div class="handle"></div>
+      <div class="stitle">Resumir con IA</div>
+      ${opts}
+      <div id="serr" style="display:none;color:var(--danger);font-size:12px;
+        margin:8px 0;padding:10px;background:rgba(224,85,85,.1);border-radius:9px"></div>
+      <button class="btn ba" style="width:100%;padding:12px;margin-top:8px" id="bsum" onclick="doSummary()">
+        Generar resumen
+      </button>
+    </div>
+  </div>`;
+}
+
+function selStype(id,el) {
+  _stype=id;
+  document.querySelectorAll('.sopt').forEach(o=>o.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+async function doSummary() {
+  if(!API_KEY||API_KEY==='TU_API_KEY_AQUI'){
+    $('serr').style.display='';
+    $('serr').textContent='Falta la API key. Edita el archivo HTML y reemplaza TU_API_KEY_AQUI con tu clave de Anthropic.';
+    return;
+  }
+  const text=doc().text;
+  const type=STYPES.find(t=>t.id===_stype);
+  const btn=$('bsum');
+  btn.innerHTML='<span class="spin"></span>Generando...'; btn.disabled=true;
+  $('serr').style.display='none';
+  try {
+    const trunc=text.length>60000?text.slice(0,60000)+'\n\n[Texto truncado]':text;
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':API_KEY,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true',
+      },
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:1024,
+        messages:[{role:'user',content:`${type.p}\n\nResponde en el mismo idioma del texto.\n\nTexto:\n${trunc}`}]
+      })
+    });
+    if(!res.ok){const e=await res.json();throw new Error(e.error?.message||`Error ${res.status}`);}
+    const data=await res.json();
+    const summary=data.content[0].text;
+    closeOC();
+    showSummaryResult(summary,type.t);
+  } catch(err){
+    $('serr').style.display='';
+    $('serr').textContent=err.message;
+    btn.innerHTML='Generar resumen'; btn.disabled=false;
+  }
+}
+
+function showSummaryResult(summary,title) {
+  $('oc').innerHTML=`
+  <div class="overlay ctr" onclick="closeOC()">
+    <div class="mbox" onclick="event.stopPropagation()">
+      <div class="mtitle">✨ ${title}</div>
+      <div style="max-height:52vh;overflow-y:auto;margin-bottom:16px">
+        <p style="font-size:13px;line-height:1.75;color:var(--text);white-space:pre-wrap">${esc(summary)}</p>
+      </div>
+      <div class="brow">
+        <button class="btn bg" onclick="closeOC()">Descartar</button>
+        <button class="btn ba" onclick="useSummary(this)">Usar resumen</button>
+      </div>
+    </div>
+  </div>`;
+  // Store summary in button for retrieval
+  $('oc').querySelector('.ba').dataset.summary=summary;
+}
+
+function useSummary(btn) {
+  const s=btn.dataset.summary; closeOC(); loadText(s,'Resumen IA');
+}
+
+// ── SETTINGS ─────────────────────────────────────────────────────────────────
+const LANGS=[
+  {c:'es-ES',n:'Español (España)'},{c:'es-MX',n:'Español (México)'},
+  {c:'es-AR',n:'Español (Argentina)'},{c:'en-US',n:'English (US)'},{c:'en-GB',n:'English (UK)'},
+];
+
+function toggleSettings() {
+  const btn=$('btnsett');
+  if($('oc').querySelector('.ssheet')){closeOC();btn.classList.remove('act');return;}
+  btn.classList.add('act');
+  const lbs=LANGS.map(l=>`<button class="lbtn${l.c===S.lang?' sel':''}" onclick="setLang('${l.c}',this)">${l.n}</button>`).join('');
+  $('oc').innerHTML=`
+  <div class="overlay" onclick="closeOC();$('btnsett').classList.remove('act')">
+    <div class="sheet ssheet" onclick="event.stopPropagation()">
+      <div class="handle"></div>
+      <div class="stitle">Ajustes de voz</div>
+      <div class="slabel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Idioma
+      </div>
+      <div class="lgrid">${lbs}</div>
+      <div class="slabel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Tono de voz
+      </div>
+      <div class="prow">
+        <label>Tono</label>
+        <input type="range" class="pslider" id="pslider" min="0.5" max="2.0" step="0.1" value="${S.pitch}" oninput="onPitch()">
+        <span class="pval" id="pval">${S.pitch.toFixed(1)}</span>
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.6;
+        padding:9px;background:var(--s2);border-radius:9px">
+        💡 Las voces disponibles dependen de las instaladas en tu dispositivo.
+        En iPhone, ve a Ajustes → Accesibilidad → Contenido leído → Voces para agregar más.
+      </p>
+    </div>
+  </div>`;
+}
+
+function setLang(c,el) {
+  S.lang=c;
+  document.querySelectorAll('.lbtn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+function onPitch() {
+  S.pitch=parseFloat($('pslider').value);
+  $('pval').textContent=S.pitch.toFixed(1);
+}
+
+// ── OFFLINE DETECTION ────────────────────────────────────────────────────────
+function checkOnline() {
+  $('offbadge').classList.toggle('on', !navigator.onLine);
+}
+
+// ── SERVICE WORKER ───────────────────────────────────────────────────────────
+function registerSW() {
+  if(!('serviceWorker' in navigator))return;
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+function init() {
+  _voices=synth.getVoices();
+  renderAll();
+  onSpeed();
+  checkOnline();
+  registerSW();
+}
+
+window.addEventListener('online', checkOnline);
+window.addEventListener('offline', checkOnline);
+window.addEventListener('load', init);
+window.addEventListener('pageshow', ()=>{ _voices=synth.getVoices(); });
+</script>
+</body>
+</html>
