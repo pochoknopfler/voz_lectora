@@ -8,1821 +8,1020 @@
 <meta name="apple-mobile-web-app-title" content="Voz Lectora">
 <meta name="theme-color" content="#0a0a0c">
 <title>Voz Lectora</title>
-
-<!-- PWA Manifest inline -->
-<script>
-(function(){
-  const manifest = {
-    name: 'Voz Lectora',
-    short_name: 'VozLectora',
-    description: 'Lee y resume documentos en voz alta',
-    start_url: './',
-    display: 'standalone',
-    background_color: '#0a0a0c',
-    theme_color: '#d4a843',
-    orientation: 'portrait-primary',
-    icons: [
-      { src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='40' fill='%230a0a0c'/%3E%3Ctext x='50%25' y='58%25' font-size='110' text-anchor='middle' dominant-baseline='middle' fill='%23d4a843'%3E🎙%3C/text%3E%3C/svg%3E", sizes: '192x192', type: 'image/svg+xml' },
-      { src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%230a0a0c'/%3E%3Ctext x='50%25' y='58%25' font-size='300' text-anchor='middle' dominant-baseline='middle' fill='%23d4a843'%3E🎙%3C/text%3E%3C/svg%3E", sizes: '512x512', type: 'image/svg+xml' }
-    ]
-  };
-  const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('link');
-  link.rel = 'manifest'; link.href = url;
-  document.currentScript.after(link);
-})();
-</script>
-
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- PDF.js y Mammoth cargados al inicio para garantizar disponibilidad -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+
 <style>
-  :root {
-    --bg:        #0a0a0c;
-    --surface:   #141418;
-    --surface2:  #1e1e24;
-    --surface3:  #28282f;
-    --accent:    #d4a843;
-    --accent-dim: rgba(212,168,67,0.12);
-    --accent-glow: rgba(212,168,67,0.25);
-    --text:      #f0ede6;
-    --muted:     #6b6b75;
-    --danger:    #e05555;
-    --success:   #4caf7d;
-    --blue:      #4c8fe0;
-    --green:     #4ce08a;
-    --orange:    #e08a4c;
-    --purple:    #a04ce0;
-    --radius:    16px;
-    --safe-bottom: env(safe-area-inset-bottom, 0px);
-  }
+:root {
+  --bg:#0a0a0c; --surface:#141418; --s2:#1e1e24; --s3:#28282f;
+  --accent:#d4a843; --adim:rgba(212,168,67,.13); --aglow:rgba(212,168,67,.28);
+  --text:#f0ede6; --muted:#6b6b75; --danger:#e05555; --ok:#4caf7d;
+  --blue:#4c8fe0; --green:#4ce08a; --orange:#e08a4c; --purple:#a04ce0;
+  --sb:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
+  font-family:'DM Sans',sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
 
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+#app{display:flex;flex-direction:column;height:100dvh;max-width:680px;margin:0 auto}
 
-  html, body {
-    height: 100%; width: 100%;
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'DM Sans', sans-serif;
-    overflow: hidden;
-    -webkit-font-smoothing: antialiased;
-  }
+/* Header */
+#hdr{display:flex;align-items:center;padding:12px 16px 10px;gap:7px;flex-shrink:0;
+  border-bottom:1px solid var(--s2)}
+.logo-main{font-family:'Playfair Display',serif;font-size:19px;font-weight:900;
+  color:var(--accent);letter-spacing:3px;line-height:1}
+.logo-sub{font-size:9px;color:var(--muted);letter-spacing:4px}
+.spacer{flex:1}
+.hbtn{display:flex;align-items:center;gap:4px;padding:7px 11px;
+  background:var(--surface);border:1px solid var(--s3);border-radius:10px;
+  color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;
+  cursor:pointer;transition:all .15s;white-space:nowrap}
+.hbtn svg{width:13px;height:13px}
+.hbtn:active{transform:scale(.94)}
+.hbtn.act{background:var(--adim);border-color:var(--accent);color:var(--accent)}
+.hbtn.dis{opacity:.3;pointer-events:none}
 
-  /* ── Layout ── */
-  #app {
-    display: flex;
-    flex-direction: column;
-    height: 100dvh;
-    max-width: 680px;
-    margin: 0 auto;
-    position: relative;
-  }
+/* Tabs */
+#tabs{display:flex;align-items:center;gap:5px;padding:8px 16px 5px;
+  flex-shrink:0;overflow-x:auto;scrollbar-width:none}
+#tabs::-webkit-scrollbar{display:none}
+.tab{display:flex;align-items:center;gap:5px;padding:5px 12px;
+  background:var(--surface);border:1px solid var(--s3);border-radius:8px;
+  font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;
+  white-space:nowrap;transition:all .15s;flex-shrink:0;max-width:130px}
+.tab span{overflow:hidden;text-overflow:ellipsis}
+.tab.act{background:var(--accent);border-color:var(--accent);color:#0a0a0c}
+.tab-x{width:13px;height:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tab-add{width:30px;height:30px;background:var(--surface);border:1px solid var(--s3);
+  border-radius:8px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;flex-shrink:0;color:var(--muted)}
 
-  /* ── Header ── */
-  #header {
-    display: flex;
-    align-items: center;
-    padding: 14px 18px 10px;
-    gap: 8px;
-    flex-shrink: 0;
-    border-bottom: 1px solid var(--surface2);
-  }
+/* Stats */
+#stats{display:none;align-items:center;gap:5px;padding:4px 16px;flex-shrink:0}
+.chip{padding:3px 8px;background:var(--adim);border:1px solid rgba(212,168,67,.2);
+  border-radius:5px;font-size:10px;font-weight:700;color:var(--accent)}
+.chip.bl{background:rgba(76,143,224,.12);border-color:rgba(76,143,224,.2);color:var(--blue)}
+#clrbtn{margin-left:auto;display:flex;align-items:center;gap:3px;padding:3px 8px;
+  background:var(--s2);border-radius:5px;font-size:11px;color:var(--muted);cursor:pointer}
 
-  .logo {
-    margin-right: auto;
-  }
-  .logo-main {
-    font-family: 'Playfair Display', serif;
-    font-size: 20px;
-    font-weight: 900;
-    color: var(--accent);
-    letter-spacing: 3px;
-    line-height: 1;
-  }
-  .logo-sub {
-    font-size: 9px;
-    color: var(--muted);
-    letter-spacing: 4px;
-    text-transform: uppercase;
-  }
+/* Progress */
+#pgwrap{padding:3px 16px 5px;flex-shrink:0;display:none}
+#pgtrack{height:3px;background:var(--s2);border-radius:2px;overflow:hidden}
+#pgfill{height:100%;background:var(--accent);border-radius:2px;width:0%;transition:width .25s}
+#pglabels{display:flex;justify-content:space-between;margin-top:3px;
+  font-size:10px;color:var(--muted)}
+#pgstatus{color:var(--accent)}
 
-  .hbtn {
-    display: flex; align-items: center; gap: 5px;
-    padding: 7px 12px;
-    background: var(--surface);
-    border: 1px solid var(--surface3);
-    border-radius: 10px;
-    color: var(--muted);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all .18s;
-    white-space: nowrap;
-    -webkit-user-select: none;
-  }
-  .hbtn svg { width: 14px; height: 14px; flex-shrink: 0; }
-  .hbtn:active { transform: scale(.95); }
-  .hbtn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
-  .hbtn:disabled, .hbtn.disabled { opacity: .3; pointer-events: none; }
+/* Text wrap */
+#txtwrap{flex:1;margin:0 14px;background:var(--surface);border:1px solid var(--s2);
+  border-radius:14px;display:flex;flex-direction:column;overflow:hidden;min-height:0}
 
-  /* ── Tabs ── */
-  #tabs-bar {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 18px 6px;
-    flex-shrink: 0;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  #tabs-bar::-webkit-scrollbar { display: none; }
+/* Toolbar */
+#tbar{display:none;align-items:center;gap:5px;padding:7px 12px;
+  background:var(--s2);border-bottom:1px solid var(--s3);flex-shrink:0;flex-wrap:wrap}
+#tbar.on{display:flex}
+.tbtn{display:flex;align-items:center;gap:3px;padding:5px 9px;
+  background:var(--surface);border:1px solid transparent;border-radius:6px;
+  font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .13s}
+.tbtn svg{width:12px;height:12px}
+.tbtn.act{background:var(--adim);border-color:var(--accent);color:var(--accent)}
+.cdot{width:17px;height:17px;border-radius:50%;cursor:pointer;
+  border:2px solid transparent;transition:all .13s;flex-shrink:0}
+.cdot.sel{width:21px;height:21px;border-color:#fff;box-shadow:0 0 7px currentColor}
+.tsep{width:1px;height:18px;background:var(--s3);margin:0 2px}
 
-  .tab {
-    display: flex; align-items: center; gap: 6px;
-    padding: 6px 13px;
-    background: var(--surface);
-    border: 1px solid var(--surface3);
-    border-radius: 9px;
-    font-size: 12px; font-weight: 600;
-    color: var(--muted);
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all .18s;
-    flex-shrink: 0;
-    max-width: 140px;
-  }
-  .tab span { overflow: hidden; text-overflow: ellipsis; }
-  .tab.active { background: var(--accent); border-color: var(--accent); color: #0a0a0c; }
-  .tab .tab-close {
-    width: 14px; height: 14px;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 50%;
-    opacity: .6;
-    flex-shrink: 0;
-  }
-  .tab .tab-close:hover { opacity: 1; }
-  .tab-add {
-    width: 32px; height: 32px;
-    background: var(--surface);
-    border: 1px solid var(--surface3);
-    border-radius: 9px;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer;
-    flex-shrink: 0;
-    color: var(--muted);
-    transition: all .18s;
-  }
-  .tab-add:hover { border-color: var(--accent); color: var(--accent); }
+/* Reader / Editor */
+#reader{flex:1;overflow-y:auto;padding:18px;font-size:16px;line-height:1.85;
+  color:var(--text);font-family:Georgia,serif;-webkit-overflow-scrolling:touch;
+  word-break:break-word;cursor:text;min-height:0;display:block}
+#reader:empty::before{content:'Carga un documento o pega texto aquí...';
+  color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px}
+#editor{display:none;flex:1;padding:18px;font-size:15px;line-height:1.8;
+  color:var(--text);background:transparent;border:none;outline:none;
+  resize:none;font-family:'DM Sans',sans-serif;-webkit-overflow-scrolling:touch;min-height:0}
 
-  /* ── Stats bar ── */
-  #stats-bar {
-    display: flex; align-items: center; gap: 6px;
-    padding: 4px 18px;
-    flex-shrink: 0;
-    min-height: 28px;
-  }
-  .chip {
-    padding: 3px 8px;
-    background: var(--accent-dim);
-    border: 1px solid rgba(212,168,67,.2);
-    border-radius: 6px;
-    font-size: 10px; font-weight: 700;
-    color: var(--accent);
-    letter-spacing: .3px;
-  }
-  .chip.blue { background: rgba(76,143,224,.12); border-color: rgba(76,143,224,.2); color: var(--blue); }
-  #clear-btn {
-    margin-left: auto;
-    display: flex; align-items: center; gap: 3px;
-    padding: 3px 9px;
-    background: var(--surface2);
-    border-radius: 6px;
-    font-size: 11px; color: var(--muted);
-    cursor: pointer;
-    transition: all .15s;
-  }
-  #clear-btn:hover { color: var(--danger); }
+/* Highlight styles */
+.hl{border-radius:3px;padding:0 1px;cursor:pointer;font-weight:600;
+  text-decoration:underline;text-underline-offset:3px}
+.hy{background:rgba(212,168,67,.25);text-decoration-color:var(--accent)}
+.hb{background:rgba(76,143,224,.22);text-decoration-color:var(--blue)}
+.hg{background:rgba(76,224,138,.2);text-decoration-color:var(--green)}
+.ho{background:rgba(224,138,76,.22);text-decoration-color:var(--orange)}
+.hp{background:rgba(160,76,224,.2);text-decoration-color:var(--purple)}
+.tw{background:var(--accent);color:#0a0a0c;border-radius:3px;font-weight:800;padding:0 2px}
 
-  /* ── Progress bar ── */
-  #progress-wrap {
-    padding: 4px 18px 6px;
-    flex-shrink: 0;
-  }
-  #progress-track {
-    height: 3px;
-    background: var(--surface2);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-  #progress-fill {
-    height: 100%;
-    background: var(--accent);
-    border-radius: 2px;
-    width: 0%;
-    transition: width .3s ease;
-  }
-  #progress-labels {
-    display: flex; justify-content: space-between;
-    margin-top: 4px;
-    font-size: 10px; color: var(--muted);
-  }
-  #progress-status { color: var(--accent); }
+/* Empty state */
+#empty{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  text-align:center;pointer-events:none}
+#empty svg{width:48px;height:48px;color:var(--muted);opacity:.3;margin-bottom:12px}
+#empty p{color:var(--muted);font-size:14px;line-height:1.6}
+#empty small{color:var(--muted);opacity:.45;font-size:11px;display:block;margin-top:5px}
 
-  /* ── Text area wrapper ── */
-  #text-wrap {
-    flex: 1;
-    margin: 0 16px;
-    background: var(--surface);
-    border: 1px solid var(--surface2);
-    border-radius: var(--radius);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    min-height: 0;
-  }
+/* Player */
+#player{flex-shrink:0;margin:8px 14px;margin-bottom:calc(8px + var(--sb));
+  background:var(--surface);border:1px solid var(--s2);border-radius:18px;padding:14px 18px}
+#sprow{display:flex;align-items:center;gap:9px;margin-bottom:12px}
+#sprow label{font-size:11px;color:var(--muted);white-space:nowrap}
+#spslider{flex:1;-webkit-appearance:none;height:3px;background:var(--s3);
+  border-radius:2px;outline:none}
+#spslider::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;
+  background:var(--accent);border-radius:50%;cursor:pointer;box-shadow:0 0 7px var(--aglow)}
+#spval{font-size:12px;font-weight:700;color:var(--accent);min-width:30px;text-align:right}
+#ctrlrow{display:flex;align-items:center;justify-content:center;gap:14px}
+.cbtn{width:46px;height:46px;background:var(--s2);border:none;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);transition:all .15s}
+.cbtn:active{transform:scale(.92)}
+.cbtn svg{width:20px;height:20px}
+#playbtn{width:64px;height:64px;background:var(--accent);border:none;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;color:#0a0a0c;
+  box-shadow:0 0 20px var(--aglow);transition:all .15s}
+#playbtn:active{transform:scale(.93)}
+#playbtn:disabled{background:var(--s3);box-shadow:none;cursor:not-allowed}
+#playbtn svg{width:30px;height:30px}
+#sbadge{padding:5px 11px;border-radius:20px;font-size:11px;font-weight:700;
+  background:var(--s2);color:var(--muted);border:1px solid var(--s3);
+  min-width:68px;text-align:center;transition:all .18s}
+#sbadge.pl{background:var(--adim);color:var(--accent);border-color:var(--accent)}
+#sbadge.pa{background:rgba(224,138,76,.1);color:var(--orange);border-color:rgba(224,138,76,.3)}
 
-  /* ── Toolbar (dentro del text-wrap) ── */
-  #toolbar {
-    display: none;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    background: var(--surface2);
-    border-bottom: 1px solid var(--surface3);
-    flex-shrink: 0;
-    flex-wrap: wrap;
-  }
-  #toolbar.visible { display: flex; }
+/* Export button */
+#expbtn{display:flex;align-items:center;justify-content:center;gap:6px;
+  width:100%;margin-top:10px;padding:10px;background:var(--adim);
+  border:1px solid rgba(212,168,67,.25);border-radius:11px;
+  font-size:12px;font-weight:600;color:var(--accent);cursor:pointer;transition:all .15s}
+#expbtn:hover{background:rgba(212,168,67,.2)}
+#expbtn:disabled{opacity:.3;cursor:not-allowed}
+#expbtn svg{width:14px;height:14px}
 
-  .tbtn {
-    display: flex; align-items: center; gap: 4px;
-    padding: 5px 10px;
-    background: var(--surface);
-    border: 1px solid transparent;
-    border-radius: 7px;
-    font-size: 11px; font-weight: 600; color: var(--muted);
-    cursor: pointer; transition: all .15s;
-  }
-  .tbtn svg { width: 13px; height: 13px; }
-  .tbtn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
-  .tbtn:active { transform: scale(.95); }
+/* Offline badge */
+#offbadge{display:none;position:fixed;top:10px;right:10px;
+  background:var(--s2);border:1px solid var(--orange);color:var(--orange);
+  border-radius:20px;padding:4px 10px;font-size:10px;font-weight:700;z-index:50;
+  gap:4px;align-items:center}
+#offbadge.on{display:flex}
 
-  .color-dot {
-    width: 18px; height: 18px;
-    border-radius: 50%;
-    cursor: pointer;
-    border: 2px solid transparent;
-    transition: all .15s;
-    flex-shrink: 0;
-  }
-  .color-dot.selected { width: 22px; height: 22px; border-color: white; box-shadow: 0 0 8px currentColor; }
+/* Overlays */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:100;
+  display:flex;align-items:flex-end;animation:fi .18s}
+.overlay.ctr{align-items:center;justify-content:center;padding:18px}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+.sheet{width:100%;background:var(--surface);border-radius:22px 22px 0 0;
+  padding:18px 22px calc(22px + var(--sb));animation:su .26s cubic-bezier(.16,1,.3,1);
+  max-height:88dvh;overflow-y:auto}
+@keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.handle{width:38px;height:4px;background:var(--s3);border-radius:2px;margin:0 auto 16px}
+.stitle{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:2px;
+  text-transform:uppercase;margin-bottom:12px}
+.mbox{background:var(--surface);border-radius:18px;padding:22px;width:100%;
+  max-width:420px;animation:sc .2s cubic-bezier(.16,1,.3,1)}
+@keyframes sc{from{transform:scale(.95);opacity:0}to{transform:scale(1);opacity:1}}
+.mtitle{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;
+  color:var(--text);margin-bottom:5px}
+.msub{font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5}
 
-  .toolbar-sep { width: 1px; height: 20px; background: var(--surface3); margin: 0 2px; }
+/* Import options */
+.iopt{display:flex;align-items:center;gap:12px;padding:12px 14px;
+  background:var(--s2);border-radius:12px;cursor:pointer;margin-bottom:7px;
+  border:1px solid transparent;transition:all .13s}
+.iopt:hover{border-color:var(--accent)}
+.iopt:active{transform:scale(.98)}
+.iico{width:40px;height:40px;background:var(--adim);border-radius:9px;
+  display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0}
+.iico svg{width:18px;height:18px}
+.ititle{font-size:13px;font-weight:600;color:var(--text)}
+.isub{font-size:11px;color:var(--muted)}
 
-  /* ── Reader / Editor ── */
-  #reader {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px;
-    font-size: 17px;
-    line-height: 1.85;
-    color: var(--text);
-    font-family: Georgia, 'Times New Roman', serif;
-    -webkit-overflow-scrolling: touch;
-    word-break: break-word;
-    cursor: text;
-    min-height: 0;
-  }
-  #reader:empty::before {
-    content: 'Carga un documento o pega tu texto aquí...';
-    color: var(--muted);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 15px;
-  }
+/* Summary options */
+.sopt{display:flex;align-items:center;gap:12px;padding:13px 14px;
+  background:var(--s2);border-radius:12px;cursor:pointer;margin-bottom:7px;
+  border:1.5px solid transparent;transition:all .15s}
+.sopt.sel{background:var(--adim);border-color:var(--accent)}
+.sopticon{font-size:20px;flex-shrink:0}
 
-  /* Highlight styles */
-  .hl { border-radius: 3px; padding: 0 1px; cursor: pointer; }
-  .hl-yellow { background: rgba(212,168,67,.28); text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 3px; font-weight: 600; }
-  .hl-blue   { background: rgba(76,143,224,.25); text-decoration: underline; text-decoration-color: var(--blue); text-underline-offset: 3px; font-weight: 600; }
-  .hl-green  { background: rgba(76,224,138,.22); text-decoration: underline; text-decoration-color: var(--green); text-underline-offset: 3px; font-weight: 600; }
-  .hl-orange { background: rgba(224,138,76,.25); text-decoration: underline; text-decoration-color: var(--orange); text-underline-offset: 3px; font-weight: 600; }
-  .hl-purple { background: rgba(160,76,224,.22); text-decoration: underline; text-decoration-color: var(--purple); text-underline-offset: 3px; font-weight: 600; }
+/* Fields */
+.field{width:100%;background:var(--s2);border:1px solid var(--s3);border-radius:11px;
+  padding:12px 13px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+  line-height:1.6;outline:none;resize:none;transition:border-color .15s;margin-bottom:12px}
+.field:focus{border-color:var(--accent)}
+.brow{display:flex;gap:8px;justify-content:flex-end}
+.btn{padding:9px 18px;border-radius:11px;font-family:'DM Sans',sans-serif;
+  font-size:13px;font-weight:700;cursor:pointer;border:none;transition:all .15s}
+.btn:active{transform:scale(.96)}
+.bg{background:transparent;color:var(--muted)}
+.ba{background:var(--accent);color:#0a0a0c}
+.ba:disabled{opacity:.4;cursor:not-allowed}
 
-  /* TTS word highlight */
-  .tts-word { background: var(--accent); color: #0a0a0c; border-radius: 3px; font-weight: 800; padding: 0 2px; }
+/* Settings */
+.slabel{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted);
+  font-weight:600;margin-bottom:7px}
+.slabel svg{width:13px;height:13px}
+.lgrid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}
+.lbtn{padding:6px 12px;background:var(--s2);border:1px solid transparent;
+  border-radius:8px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .13s}
+.lbtn.sel{background:var(--adim);border-color:var(--accent);color:var(--accent)}
+.prow{display:flex;align-items:center;gap:9px;margin-bottom:12px}
+.prow label{font-size:11px;color:var(--muted);white-space:nowrap;min-width:75px}
+.pslider{flex:1;-webkit-appearance:none;height:3px;background:var(--s3);
+  border-radius:2px;outline:none}
+.pslider::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;
+  background:var(--accent);border-radius:50%;cursor:pointer}
+.pval{font-size:12px;font-weight:700;color:var(--accent);min-width:32px;text-align:right}
 
-  #editor {
-    display: none;
-    flex: 1;
-    padding: 20px;
-    font-size: 16px;
-    line-height: 1.8;
-    color: var(--text);
-    background: transparent;
-    border: none;
-    outline: none;
-    resize: none;
-    font-family: 'DM Sans', sans-serif;
-    -webkit-overflow-scrolling: touch;
-    min-height: 0;
-  }
+/* AI spinner */
+.spin{display:inline-block;width:16px;height:16px;border:2px solid var(--s3);
+  border-top-color:var(--accent);border-radius:50%;animation:sp .6s linear infinite;
+  vertical-align:middle;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
 
-  /* Empty state */
-  #empty-state {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-    pointer-events: none;
-  }
-  #empty-state svg { width: 52px; height: 52px; color: var(--muted); opacity: .35; margin-bottom: 14px; }
-  #empty-state p { color: var(--muted); font-size: 15px; line-height: 1.6; }
-  #empty-state small { color: var(--muted); opacity: .5; font-size: 12px; display: block; margin-top: 6px; }
+/* Toast */
+#toast{position:fixed;bottom:calc(18px + var(--sb));left:50%;
+  transform:translateX(-50%) translateY(16px);background:var(--s2);
+  border:1px solid var(--s3);border-radius:11px;padding:9px 16px;
+  font-size:12px;font-weight:600;color:var(--text);opacity:0;pointer-events:none;
+  transition:all .25s;z-index:999;white-space:nowrap;display:flex;align-items:center;gap:7px}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast svg{width:14px;height:14px}
 
-  /* ── Player controls ── */
-  #player {
-    flex-shrink: 0;
-    margin: 10px 16px;
-    margin-bottom: calc(10px + var(--safe-bottom));
-    background: var(--surface);
-    border: 1px solid var(--surface2);
-    border-radius: 20px;
-    padding: 16px 20px;
-  }
+/* Context menu */
+#ctxmenu{position:fixed;background:var(--s2);border:1px solid var(--s3);
+  border-radius:11px;padding:5px;z-index:200;box-shadow:0 8px 28px rgba(0,0,0,.6);
+  display:none;min-width:150px}
+#ctxmenu.on{display:block;animation:sc .13s}
+.citem{display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:7px;
+  font-size:12px;font-weight:600;cursor:pointer;color:var(--text);transition:background .1s}
+.citem:hover{background:var(--s3)}
+.citem svg{width:13px;height:13px;color:var(--accent)}
+.csep{height:1px;background:var(--s3);margin:3px 0}
 
-  #speed-row {
-    display: flex; align-items: center; gap: 10px;
-    margin-bottom: 14px;
-  }
-  #speed-row label { font-size: 11px; color: var(--muted); white-space: nowrap; }
-  #speed-slider {
-    flex: 1;
-    -webkit-appearance: none;
-    height: 3px;
-    background: var(--surface3);
-    border-radius: 2px;
-    outline: none;
-  }
-  #speed-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 16px; height: 16px;
-    background: var(--accent);
-    border-radius: 50%;
-    cursor: pointer;
-    box-shadow: 0 0 8px var(--accent-glow);
-  }
-  #speed-val { font-size: 12px; font-weight: 700; color: var(--accent); min-width: 32px; text-align: right; }
-
-  #controls-row {
-    display: flex; align-items: center; justify-content: center;
-    gap: 16px;
-  }
-
-  .ctrl-btn {
-    width: 48px; height: 48px;
-    background: var(--surface2);
-    border: none; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; color: var(--text);
-    transition: all .18s;
-  }
-  .ctrl-btn:active { transform: scale(.92); }
-  .ctrl-btn svg { width: 22px; height: 22px; }
-
-  #play-btn {
-    width: 68px; height: 68px;
-    background: var(--accent);
-    border: none; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; color: #0a0a0c;
-    box-shadow: 0 0 24px var(--accent-glow);
-    transition: all .18s;
-  }
-  #play-btn:active { transform: scale(.93); }
-  #play-btn:disabled { background: var(--surface3); box-shadow: none; cursor: not-allowed; }
-  #play-btn svg { width: 32px; height: 32px; }
-
-  #status-badge {
-    padding: 5px 12px;
-    border-radius: 20px;
-    font-size: 11px; font-weight: 700;
-    background: var(--surface2);
-    color: var(--muted);
-    border: 1px solid var(--surface3);
-    min-width: 72px; text-align: center;
-    transition: all .2s;
-  }
-  #status-badge.playing { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
-  #status-badge.paused  { background: rgba(224,138,76,.1); color: var(--orange); border-color: rgba(224,138,76,.3); }
-
-  /* ── Export button ── */
-  #export-btn {
-    display: flex; align-items: center; justify-content: center; gap: 7px;
-    width: 100%;
-    margin-top: 12px;
-    padding: 11px;
-    background: var(--accent-dim);
-    border: 1px solid rgba(212,168,67,.3);
-    border-radius: 12px;
-    font-size: 13px; font-weight: 600; color: var(--accent);
-    cursor: pointer;
-    transition: all .18s;
-  }
-  #export-btn:hover { background: rgba(212,168,67,.2); }
-  #export-btn:disabled { opacity: .3; cursor: not-allowed; }
-  #export-btn svg { width: 16px; height: 16px; }
-
-  /* ── Modals ── */
-  .overlay {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,.7);
-    z-index: 100;
-    display: flex; align-items: flex-end;
-    animation: fadeIn .2s;
-  }
-  .overlay.center { align-items: center; justify-content: center; padding: 20px; }
-  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-  .sheet {
-    width: 100%;
-    background: var(--surface);
-    border-radius: 24px 24px 0 0;
-    padding: 20px 24px calc(24px + var(--safe-bottom));
-    animation: slideUp .28s cubic-bezier(.16,1,.3,1);
-    max-height: 90dvh;
-    overflow-y: auto;
-  }
-  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-
-  .sheet-handle {
-    width: 40px; height: 4px;
-    background: var(--surface3);
-    border-radius: 2px;
-    margin: 0 auto 18px;
-  }
-  .sheet-title { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 14px; }
-
-  .modal-box {
-    background: var(--surface);
-    border-radius: 20px;
-    padding: 24px;
-    width: 100%;
-    max-width: 420px;
-    animation: scaleIn .22s cubic-bezier(.16,1,.3,1);
-  }
-  @keyframes scaleIn { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-  .modal-title {
-    font-family: 'Playfair Display', serif;
-    font-size: 18px; font-weight: 700;
-    color: var(--text);
-    margin-bottom: 6px;
-  }
-  .modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 18px; line-height: 1.5; }
-
-  .import-opt {
-    display: flex; align-items: center; gap: 14px;
-    padding: 13px 16px;
-    background: var(--surface2);
-    border-radius: 14px;
-    cursor: pointer;
-    margin-bottom: 8px;
-    transition: all .15s;
-    border: 1px solid transparent;
-  }
-  .import-opt:hover { border-color: var(--accent); }
-  .import-opt:active { transform: scale(.98); }
-  .import-icon {
-    width: 42px; height: 42px;
-    background: var(--accent-dim);
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    color: var(--accent);
-    flex-shrink: 0;
-  }
-  .import-icon svg { width: 20px; height: 20px; }
-  .import-title { font-size: 14px; font-weight: 600; color: var(--text); }
-  .import-sub { font-size: 12px; color: var(--muted); }
-
-  .summary-opt {
-    display: flex; align-items: center; gap: 14px;
-    padding: 14px 16px;
-    background: var(--surface2);
-    border-radius: 14px;
-    cursor: pointer;
-    margin-bottom: 8px;
-    border: 1.5px solid transparent;
-    transition: all .18s;
-  }
-  .summary-opt.selected { background: var(--accent-dim); border-color: var(--accent); }
-  .summary-opt-icon { font-size: 22px; flex-shrink: 0; }
-  .summary-opt-title { font-size: 14px; font-weight: 600; color: var(--text); }
-  .summary-opt-sub { font-size: 12px; color: var(--muted); }
-
-  /* ── Input / Textarea ── */
-  .field {
-    width: 100%;
-    background: var(--surface2);
-    border: 1px solid var(--surface3);
-    border-radius: 12px;
-    padding: 13px 14px;
-    color: var(--text);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 14px;
-    line-height: 1.6;
-    outline: none;
-    resize: none;
-    transition: border-color .18s;
-    margin-bottom: 14px;
-  }
-  .field:focus { border-color: var(--accent); }
-
-  /* ── Buttons ── */
-  .btn-row { display: flex; gap: 10px; justify-content: flex-end; }
-  .btn {
-    padding: 10px 20px;
-    border-radius: 12px;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 14px; font-weight: 700;
-    cursor: pointer; border: none;
-    transition: all .18s;
-  }
-  .btn:active { transform: scale(.96); }
-  .btn-ghost { background: transparent; color: var(--muted); }
-  .btn-accent { background: var(--accent); color: #0a0a0c; }
-  .btn-accent:disabled { opacity: .4; cursor: not-allowed; }
-
-  /* ── AI loading ── */
-  .ai-spinner {
-    display: inline-block;
-    width: 18px; height: 18px;
-    border: 2px solid var(--surface3);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin .7s linear infinite;
-    vertical-align: middle; margin-right: 8px;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* ── Toast ── */
-  #toast {
-    position: fixed;
-    bottom: calc(20px + var(--safe-bottom));
-    left: 50%; transform: translateX(-50%) translateY(20px);
-    background: var(--surface2);
-    border: 1px solid var(--surface3);
-    border-radius: 12px;
-    padding: 10px 18px;
-    font-size: 13px; font-weight: 600;
-    color: var(--text);
-    opacity: 0;
-    pointer-events: none;
-    transition: all .3s;
-    z-index: 999;
-    white-space: nowrap;
-    display: flex; align-items: center; gap: 8px;
-  }
-  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-  #toast.success svg { color: var(--success); }
-  #toast.error svg { color: var(--danger); }
-
-  /* ── Settings sheet ── */
-  .settings-label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
-  .settings-label svg { width: 14px; height: 14px; }
-  .lang-grid { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 20px; }
-  .lang-btn {
-    padding: 7px 13px;
-    background: var(--surface2);
-    border: 1px solid transparent;
-    border-radius: 9px;
-    font-size: 12px; font-weight: 600;
-    color: var(--muted); cursor: pointer;
-    transition: all .15s;
-  }
-  .lang-btn.selected { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
-
-  .pitch-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-  .pitch-row label { font-size: 12px; color: var(--muted); white-space: nowrap; min-width: 80px; }
-  .pitch-slider {
-    flex: 1; -webkit-appearance: none;
-    height: 3px; background: var(--surface3); border-radius: 2px; outline: none;
-  }
-  .pitch-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 14px; height: 14px;
-    background: var(--accent); border-radius: 50%; cursor: pointer;
-  }
-  .pitch-val { font-size: 12px; font-weight: 700; color: var(--accent); min-width: 36px; text-align: right; }
-
-  /* ── Context menu ── */
-  #ctx-menu {
-    position: fixed;
-    background: var(--surface2);
-    border: 1px solid var(--surface3);
-    border-radius: 12px;
-    padding: 6px;
-    z-index: 200;
-    box-shadow: 0 8px 32px rgba(0,0,0,.6);
-    display: none;
-    min-width: 160px;
-  }
-  #ctx-menu.show { display: block; animation: scaleIn .15s; }
-  .ctx-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 9px 12px;
-    border-radius: 8px;
-    font-size: 13px; font-weight: 600;
-    cursor: pointer; color: var(--text);
-    transition: background .12s;
-  }
-  .ctx-item:hover { background: var(--surface3); }
-  .ctx-item svg { width: 15px; height: 15px; color: var(--accent); }
-  .ctx-sep { height: 1px; background: var(--surface3); margin: 4px 0; }
-
-  /* ── Highlight mode indicator ── */
-  #hl-mode-bar {
-    display: none;
-    padding: 6px 18px;
-    background: var(--accent-dim);
-    border-bottom: 1px solid rgba(212,168,67,.2);
-    font-size: 11px; color: var(--accent); font-weight: 600;
-    align-items: center; gap: 8px;
-    flex-shrink: 0;
-  }
-  #hl-mode-bar.show { display: flex; }
-  #hl-mode-bar svg { width: 13px; height: 13px; }
-
-  /* ── Offline badge ── */
-  #offline-badge {
-    display: none;
-    position: fixed;
-    top: 12px; right: 12px;
-    background: var(--surface2);
-    border: 1px solid var(--orange);
-    color: var(--orange);
-    border-radius: 20px;
-    padding: 4px 10px;
-    font-size: 11px; font-weight: 700;
-    z-index: 50;
-    gap: 5px; align-items: center;
-  }
-  #offline-badge.show { display: flex; }
-  #offline-badge svg { width: 12px; height: 12px; }
-
-  /* ── Browser install hint ── */
-  #install-hint {
-    display: none;
-    padding: 8px 18px;
-    background: var(--accent-dim);
-    border-bottom: 1px solid rgba(212,168,67,.15);
-    font-size: 11px; color: var(--accent);
-    align-items: center; gap: 8px;
-    flex-shrink: 0;
-    cursor: pointer;
-  }
-  #install-hint.show { display: flex; }
-  #install-hint svg { width: 14px; height: 14px; flex-shrink: 0; }
-  #install-hint .hint-close { margin-left: auto; opacity: .6; }
-
-  /* Scrollbars */
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 2px; }
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--s3);border-radius:2px}
 </style>
 </head>
 <body>
 
-<!-- OFFLINE BADGE -->
-<div id="offline-badge">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.56 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
-  Sin internet — modo offline
-</div>
-
-<!-- INSTALL HINT (for non-Safari browsers) -->
-<div id="install-hint" onclick="dismissInstallHint()">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-  <span id="install-hint-text">Toca el menú del navegador → "Instalar app" para guardarla en tu celular</span>
-  <span class="hint-close">✕</span>
+<div id="offbadge">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.56 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
+  Sin internet
 </div>
 
 <div id="app">
-
   <!-- HEADER -->
-  <div id="header">
-    <div class="logo">
-      <div class="logo-main">VOZ</div>
-      <div class="logo-sub">Lectora</div>
-    </div>
-    <button class="hbtn disabled" id="btn-summarize" onclick="openSummarySheet()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/></svg>
-      Resumir
+  <div id="hdr">
+    <div class="logo-main">VOZ</div>
+    <div style="margin-right:auto"><div class="logo-sub">LECTORA</div></div>
+    <button class="hbtn dis" id="btnsum" onclick="openSummary()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/></svg>Resumir
     </button>
-    <button class="hbtn" onclick="openImportSheet()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
-      Cargar
+    <button class="hbtn" onclick="openImport()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>Cargar
     </button>
-    <button class="hbtn" id="btn-settings" onclick="toggleSettings()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 0 4.93 19.07M19.07 19.07A10 10 0 0 0 4.93 4.93"/></svg>
-      Ajustes
+    <button class="hbtn" id="btnsett" onclick="toggleSettings()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Ajustes
     </button>
   </div>
 
   <!-- TABS -->
-  <div id="tabs-bar">
-    <!-- populated by JS -->
-  </div>
+  <div id="tabs"></div>
 
-  <!-- HIGHLIGHT MODE BAR -->
-  <div id="hl-mode-bar">
-    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L9.5 9H2l6 4.5L5.5 21 12 17l6.5 4L16 13.5 22 9h-7.5z"/></svg>
-    Modo resaltado — selecciona texto y toca "Resaltar"
-  </div>
-
-  <!-- STATS BAR -->
-  <div id="stats-bar" style="display:none">
-    <span class="chip" id="chip-words">0 palabras</span>
-    <span class="chip" id="chip-time">~0 min</span>
-    <span class="chip blue" id="chip-hl" style="display:none">0 resaltados</span>
-    <div id="clear-btn" onclick="clearActiveDoc()">
-      <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
-      Limpiar
+  <!-- STATS -->
+  <div id="stats">
+    <span class="chip" id="cwords">0 palabras</span>
+    <span class="chip" id="ctime">~0 min</span>
+    <span class="chip bl" id="chl" style="display:none">0 resaltados</span>
+    <div id="clrbtn" onclick="clearDoc()">
+      <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>Limpiar
     </div>
   </div>
 
   <!-- PROGRESS -->
-  <div id="progress-wrap" style="display:none">
-    <div id="progress-track"><div id="progress-fill"></div></div>
-    <div id="progress-labels">
-      <span id="progress-pct">0% leído</span>
-      <span id="progress-status"></span>
-    </div>
+  <div id="pgwrap">
+    <div id="pgtrack"><div id="pgfill"></div></div>
+    <div id="pglabels"><span id="pgpct">0% leído</span><span id="pgstatus"></span></div>
   </div>
 
   <!-- TEXT AREA -->
-  <div id="text-wrap">
-    <div id="toolbar">
-      <button class="tbtn active" id="btn-edit-toggle" onclick="toggleEditMode()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
-        Editar
+  <div id="txtwrap">
+    <div id="tbar">
+      <button class="tbtn act" id="btnedit" onclick="toggleEdit()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>Editar
       </button>
-      <div class="toolbar-sep"></div>
-      <div id="hl-colors" style="display:flex;gap:6px;align-items:center;">
-        <div class="color-dot selected" style="background:var(--accent)" data-color="yellow" onclick="selectHlColor(this)" title="Amarillo"></div>
-        <div class="color-dot" style="background:var(--blue)"   data-color="blue"   onclick="selectHlColor(this)" title="Azul"></div>
-        <div class="color-dot" style="background:var(--green)"  data-color="green"  onclick="selectHlColor(this)" title="Verde"></div>
-        <div class="color-dot" style="background:var(--orange)" data-color="orange" onclick="selectHlColor(this)" title="Naranja"></div>
-        <div class="color-dot" style="background:var(--purple)" data-color="purple" onclick="selectHlColor(this)" title="Violeta"></div>
+      <div class="tsep"></div>
+      <div style="display:flex;gap:5px;align-items:center" id="hlcols">
+        <div class="cdot sel" style="background:var(--accent)" data-c="y" onclick="selColor(this)"></div>
+        <div class="cdot" style="background:var(--blue)"   data-c="b" onclick="selColor(this)"></div>
+        <div class="cdot" style="background:var(--green)"  data-c="g" onclick="selColor(this)"></div>
+        <div class="cdot" style="background:var(--orange)" data-c="o" onclick="selColor(this)"></div>
+        <div class="cdot" style="background:var(--purple)" data-c="p" onclick="selColor(this)"></div>
       </div>
-      <div class="toolbar-sep"></div>
-      <button class="tbtn" id="btn-clear-hl" onclick="clearHighlights()" style="display:none">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/></svg>
-        Limpiar resaltes
+      <div class="tsep"></div>
+      <button class="tbtn" id="btnclhl" onclick="clearHighlights()" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6l-1 14H6L5 6"/></svg>Limpiar resaltes
       </button>
     </div>
 
-    <div style="position:relative;flex:1;display:flex;flex-direction:column;min-height:0;">
-      <div id="empty-state">
+    <div style="position:relative;flex:1;display:flex;flex-direction:column;min-height:0">
+      <div id="empty">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
         <p>Carga un documento o<br>pega tu texto aquí</p>
-        <small>TXT · PDF · Word</small>
+        <small>TXT · PDF · Word (.docx)</small>
       </div>
-      <div id="reader" onmouseup="onTextSelect(event)" ontouchend="onTextSelect(event)"></div>
-      <textarea id="editor" placeholder="Escribe o edita el texto aquí..." oninput="onEditorInput()"></textarea>
+      <div id="reader" onmouseup="onSel(event)" ontouchend="onSel(event)"></div>
+      <textarea id="editor" placeholder="Escribe o edita el texto aquí..." oninput="onEdit()"></textarea>
     </div>
   </div>
 
   <!-- PLAYER -->
   <div id="player">
-    <div id="speed-row">
+    <div id="sprow">
       <label>Velocidad</label>
-      <input type="range" id="speed-slider" min="0.25" max="1.5" step="0.05" value="0.75" oninput="onSpeedChange()">
-      <span id="speed-val">1.0×</span>
+      <input type="range" id="spslider" min="0.3" max="1.5" step="0.05" value="0.8" oninput="onSpeed()">
+      <span id="spval">1.0×</span>
     </div>
-    <div id="controls-row">
-      <button class="ctrl-btn" onclick="stopTTS()" title="Detener">
+    <div id="ctrlrow">
+      <button class="cbtn" onclick="stopTTS()">
         <svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
       </button>
-      <button id="play-btn" onclick="togglePlay()" disabled>
-        <svg id="icon-play" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
-        <svg id="icon-pause" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      <button id="playbtn" onclick="togglePlay()" disabled>
+        <svg id="iplay" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+        <svg id="ipause" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
       </button>
-      <div id="status-badge">Listo</div>
+      <div id="sbadge">Listo</div>
     </div>
-    <button id="export-btn" onclick="exportAudio()" disabled>
+    <button id="expbtn" onclick="openExport()" disabled>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Guardar audio (.WAV)
+      Guardar / Descargar audio
     </button>
   </div>
 </div>
 
 <!-- CONTEXT MENU -->
-<div id="ctx-menu">
-  <div class="ctx-item" onclick="applyHighlight()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-    Resaltar
+<div id="ctxmenu">
+  <div class="citem" onclick="applyHL()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Resaltar
   </div>
-  <div class="ctx-sep"></div>
-  <div class="ctx-item" onclick="removeHighlightCtx()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6l-1 14H6L5 6"/></svg>
-    Quitar resalte
+  <div class="csep"></div>
+  <div class="citem" onclick="removeHL()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6l-1 14H6L5 6"/></svg>Quitar resalte
   </div>
 </div>
 
 <!-- TOAST -->
 <div id="toast">
-  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-  <span id="toast-msg"></span>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="tmsg"></span>
 </div>
 
-<!-- OVERLAYS (populated by JS) -->
-<div id="overlay-container"></div>
+<div id="oc"></div><!-- overlay container -->
+
+<input type="file" id="filein" accept=".txt,.pdf,.docx" style="display:none" onchange="onFile(event)">
 
 <script>
-// ═══════════════════════════════════════════════════════════════
-// STATE
-// ═══════════════════════════════════════════════════════════════
+// ── CONFIG ──────────────────────────────────────────────────────────────────
 const API_KEY = 'TU_API_KEY_AQUI'; // ← reemplaza con tu clave sk-ant-...
 
-const HIGHLIGHT_COLORS = ['yellow','blue','green','orange','purple'];
-
-const state = {
-  docs: [{ id: 1, title: 'Documento 1', text: '', highlights: [] }],
-  activeDoc: 0,
-  activeHlColor: 'yellow',
-  ttsState: 'stopped', // playing | paused | stopped
+// ── STATE ───────────────────────────────────────────────────────────────────
+const S = {
+  docs: [{ id:1, title:'Documento 1', text:'', hl:[] }],
+  ai: 0,          // active doc index
+  hlColor: 'y',   // active highlight color
+  tts: 'stopped', // playing | paused | stopped
   pitch: 1.0,
   lang: 'es-ES',
-  isEditMode: false,
-  wordBoundaries: [],
-  currentWordIdx: -1,
-  utterance: null,
-  selectedRange: null,
-  selectionStart: 0,
-  selectionEnd: 0,
+  editMode: false,
 };
 
-// ═══════════════════════════════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════════════════════════════
+// ── UTILS ───────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
-const doc = () => state.docs[state.activeDoc];
+const doc = () => S.docs[S.ai];
+let _selRange = null;
+let _voices = [];
 
-function showToast(msg, type = 'success') {
+function toast(msg, ok=true) {
+  $('tmsg').textContent = msg;
   const t = $('toast');
-  $('toast-msg').textContent = msg;
-  t.className = `show ${type}`;
-  setTimeout(() => t.className = '', 3000);
+  t.querySelector('svg').style.color = ok ? 'var(--ok)' : 'var(--danger)';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-function closeAllOverlays() {
-  $('overlay-container').innerHTML = '';
-  $('ctx-menu').classList.remove('show');
+function closeOC() {
+  $('oc').innerHTML = '';
+  $('ctxmenu').classList.remove('on');
 }
 
-// ═══════════════════════════════════════════════════════════════
-// DOCUMENT / TABS
-// ═══════════════════════════════════════════════════════════════
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+          .replace(/"/g,'&quot;').replace(/\n/g,'<br>');
+}
+
+// ── TABS ────────────────────────────────────────────────────────────────────
 function renderTabs() {
-  const bar = $('tabs-bar');
+  const bar = $('tabs');
   bar.innerHTML = '';
-  state.docs.forEach((d, i) => {
-    const tab = document.createElement('div');
-    tab.className = 'tab' + (i === state.activeDoc ? ' active' : '');
-    const label = d.title.length > 14 ? d.title.slice(0, 13) + '…' : d.title;
-    tab.innerHTML = `<span ondblclick="renameTab(${i})">${label}</span>`;
-    if (state.docs.length > 1) {
+  S.docs.forEach((d,i) => {
+    const t = document.createElement('div');
+    t.className = 'tab' + (i===S.ai?' act':'');
+    const lbl = d.title.length > 13 ? d.title.slice(0,12)+'…' : d.title;
+    t.innerHTML = `<span ondblclick="renameTab(${i})">${lbl}</span>`;
+    if (S.docs.length > 1) {
       const x = document.createElement('div');
-      x.className = 'tab-close';
-      x.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>`;
-      x.onclick = e => { e.stopPropagation(); closeDoc(i); };
-      tab.appendChild(x);
+      x.className = 'tab-x';
+      x.innerHTML = `<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>`;
+      x.onclick = e => { e.stopPropagation(); closeTab(i); };
+      t.appendChild(x);
     }
-    tab.onclick = () => switchDoc(i);
-    bar.appendChild(tab);
+    t.onclick = () => switchTab(i);
+    bar.appendChild(t);
   });
-  if (state.docs.length < 3) {
-    const add = document.createElement('div');
-    add.className = 'tab-add';
-    add.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>`;
-    add.onclick = addDoc;
-    bar.appendChild(add);
+  if (S.docs.length < 3) {
+    const a = document.createElement('div');
+    a.className = 'tab-add';
+    a.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>`;
+    a.onclick = addTab;
+    bar.appendChild(a);
   }
 }
 
-function switchDoc(i) {
+function switchTab(i) { stopTTS(); S.ai=i; S.editMode=false; renderAll(); }
+function addTab() {
+  if (S.docs.length>=3) { toast('Máximo 3 documentos',false); return; }
   stopTTS();
-  state.activeDoc = i;
-  state.isEditMode = false;
-  renderAll();
+  S.docs.push({id:Date.now(),title:`Documento ${S.docs.length+1}`,text:'',hl:[]});
+  S.ai = S.docs.length-1; S.editMode=false; renderAll();
 }
-
-function addDoc() {
-  if (state.docs.length >= 3) { showToast('Máximo 3 documentos', 'error'); return; }
-  stopTTS();
-  state.docs.push({ id: Date.now(), title: `Documento ${state.docs.length + 1}`, text: '', highlights: [] });
-  state.activeDoc = state.docs.length - 1;
-  state.isEditMode = false;
-  renderAll();
+function closeTab(i) {
+  stopTTS(); S.docs.splice(i,1);
+  S.ai = Math.min(S.ai, S.docs.length-1); renderAll();
 }
-
-function closeDoc(i) {
-  stopTTS();
-  state.docs.splice(i, 1);
-  state.activeDoc = Math.min(state.activeDoc, state.docs.length - 1);
-  renderAll();
-}
-
 function renameTab(i) {
-  const name = prompt('Nuevo nombre:', state.docs[i].title);
-  if (name && name.trim()) { state.docs[i].title = name.trim(); renderTabs(); }
+  const n = prompt('Nuevo nombre:',S.docs[i].title);
+  if (n && n.trim()) { S.docs[i].title=n.trim(); renderTabs(); }
 }
+function clearDoc() { stopTTS(); doc().text=''; doc().hl=[]; S.editMode=false; renderAll(); }
 
-function clearActiveDoc() {
-  stopTTS();
-  doc().text = '';
-  doc().highlights = [];
-  state.isEditMode = false;
-  renderAll();
-}
-
-// ═══════════════════════════════════════════════════════════════
-// RENDER
-// ═══════════════════════════════════════════════════════════════
+// ── RENDER ──────────────────────────────────────────────────────────────────
 function renderAll() {
   renderTabs();
   renderStats();
   renderProgress(0);
   renderTextArea();
-  updatePlayerState();
+  updatePlayer();
 }
 
 function renderStats() {
   const text = doc().text;
-  const statsBar = $('stats-bar');
-  const progressWrap = $('progress-wrap');
-  if (!text.trim()) {
-    statsBar.style.display = 'none';
-    progressWrap.style.display = 'none';
-    $('btn-summarize').classList.add('disabled');
-    $('play-btn').disabled = true;
-    $('export-btn').disabled = true;
-    $('empty-state').style.display = '';
-    $('toolbar').classList.remove('visible');
-    return;
-  }
-  statsBar.style.display = 'flex';
-  progressWrap.style.display = 'block';
-  $('empty-state').style.display = 'none';
-  $('toolbar').classList.add('visible');
-  $('btn-summarize').classList.remove('disabled');
-  $('play-btn').disabled = false;
-  $('export-btn').disabled = false;
+  const hasTxt = text.trim().length > 0;
+  $('stats').style.display = hasTxt ? 'flex' : 'none';
+  $('pgwrap').style.display = hasTxt ? 'block' : 'none';
+  $('empty').style.display = hasTxt ? 'none' : '';
+  $('tbar').classList.toggle('on', hasTxt);
+  $('btnsum').classList.toggle('dis', !hasTxt);
+  $('playbtn').disabled = !hasTxt;
+  $('expbtn').disabled = !hasTxt;
+  if (!hasTxt) return;
 
   const words = text.trim().split(/\s+/).length;
-  const speed = parseFloat($('speed-slider').value);
-  const wpm = Math.round(150 * (speed / 0.75));
-  const mins = Math.max(1, Math.ceil(words / wpm));
-  $('chip-words').textContent = `${words.toLocaleString()} palabras`;
-  $('chip-time').textContent = `~${mins} min`;
-
-  const hls = doc().highlights.length;
-  const hlChip = $('chip-hl');
-  if (hls > 0) { hlChip.textContent = `${hls} resaltados`; hlChip.style.display = ''; }
-  else hlChip.style.display = 'none';
-
-  $('btn-clear-hl').style.display = hls > 0 ? '' : 'none';
+  const speed = parseFloat($('spslider').value);
+  const wpm = Math.max(60, Math.round(130 * (speed / 0.8)));
+  const mins = Math.max(1, Math.ceil(words/wpm));
+  $('cwords').textContent = `${words.toLocaleString()} palabras`;
+  $('ctime').textContent = `~${mins} min`;
+  const hls = doc().hl.length;
+  $('chl').textContent = `${hls} resaltados`;
+  $('chl').style.display = hls > 0 ? '' : 'none';
+  $('btnclhl').style.display = hls > 0 ? '' : 'none';
 }
 
 function renderProgress(pct) {
-  $('progress-fill').style.width = `${pct}%`;
-  $('progress-pct').textContent = `${Math.round(pct)}% leído`;
+  $('pgfill').style.width = `${pct}%`;
+  $('pgpct').textContent = `${Math.round(pct)}% leído`;
 }
 
 function renderTextArea() {
-  const text = doc().text;
-  const isEdit = state.isEditMode;
-  const reader = $('reader');
-  const editor = $('editor');
-
+  const isEdit = S.editMode;
+  $('reader').style.display = isEdit ? 'none' : 'block';
+  $('editor').style.display = isEdit ? 'block' : 'none';
+  $('hlcols').style.display = isEdit ? 'none' : 'flex';
   if (isEdit) {
-    reader.style.display = 'none';
-    editor.style.display = 'block';
-    editor.value = text;
-    $('btn-edit-toggle').classList.add('active');
-    $('btn-edit-toggle').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Leer`;
-    $('hl-colors').style.display = 'none';
-    $('hl-mode-bar').classList.remove('show');
+    $('editor').value = doc().text;
+    $('btnedit').classList.add('act');
+    $('btnedit').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Leer`;
   } else {
-    editor.style.display = 'none';
-    reader.style.display = 'block';
-    $('btn-edit-toggle').classList.remove('active');
-    $('btn-edit-toggle').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg> Editar`;
-    $('hl-colors').style.display = 'flex';
-    $('hl-mode-bar').classList.add('show');
+    $('btnedit').classList.remove('act');
+    $('btnedit').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>Editar`;
     renderReader();
   }
 }
 
-function renderReader(ttsStart = -1, ttsEnd = -1) {
+function renderReader(ts=-1, te=-1) {
   const text = doc().text;
-  if (!text) { $('reader').innerHTML = ''; return; }
-
-  const hls = doc().highlights.slice().sort((a, b) => a.start - b.start);
-
-  // Build breakpoints
-  const bps = new Set([0, text.length]);
-  hls.forEach(h => { bps.add(h.start); bps.add(h.end); });
-  if (ttsStart >= 0 && ttsEnd > ttsStart) { bps.add(ttsStart); bps.add(ttsEnd); }
-
-  const sorted = [...bps].sort((a, b) => a - b);
-  let html = '';
-
-  for (let i = 0; i < sorted.length - 1; i++) {
-    const s = sorted[i], e = sorted[i + 1];
-    if (s >= e) continue;
-    const seg = escapeHtml(text.slice(s, e));
-    const isTts = ttsStart >= 0 && s >= ttsStart && e <= ttsEnd;
-    const hl = hls.find(h => h.start <= s && h.end >= e);
-
-    if (isTts) {
-      html += `<mark class="tts-word">${seg}</mark>`;
-    } else if (hl) {
-      html += `<span class="hl hl-${hl.color}" data-hl-start="${hl.start}" data-hl-end="${hl.end}">${seg}</span>`;
-    } else {
-      html += seg;
-    }
+  if (!text) { $('reader').innerHTML=''; return; }
+  const hls = [...doc().hl].sort((a,b)=>a.s-b.s);
+  const bps = new Set([0,text.length]);
+  hls.forEach(h=>{bps.add(h.s);bps.add(h.e);});
+  if (ts>=0&&te>ts){bps.add(Math.max(0,ts));bps.add(Math.min(text.length,te));}
+  const sorted=[...bps].sort((a,b)=>a-b);
+  let html='';
+  const colorClass={y:'hy',b:'hb',g:'hg',o:'ho',p:'hp'};
+  for(let i=0;i<sorted.length-1;i++){
+    const s=sorted[i],e=sorted[i+1];
+    if(s>=e)continue;
+    const seg=esc(text.slice(s,e));
+    const isTts=ts>=0&&s>=ts&&e<=te;
+    const hl=hls.find(h=>h.s<=s&&h.e>=e);
+    if(isTts) html+=`<mark class="tw">${seg}</mark>`;
+    else if(hl) html+=`<span class="hl ${colorClass[hl.c]||'hy'}" data-s="${hl.s}" data-e="${hl.e}">${seg}</span>`;
+    else html+=seg;
   }
-  $('reader').innerHTML = html;
+  $('reader').innerHTML=html;
 }
 
-function escapeHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+// ── EDIT MODE ───────────────────────────────────────────────────────────────
+function toggleEdit() {
+  if (S.editMode) { doc().text=$('editor').value; doc().hl=[]; }
+  S.editMode=!S.editMode; stopTTS(); renderStats(); renderTextArea();
+}
+function onEdit() { doc().text=$('editor').value; renderStats(); }
+
+// ── HIGHLIGHTS ──────────────────────────────────────────────────────────────
+function selColor(el) {
+  document.querySelectorAll('.cdot').forEach(d=>d.classList.remove('sel'));
+  el.classList.add('sel'); S.hlColor=el.dataset.c;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// EDIT MODE
-// ═══════════════════════════════════════════════════════════════
-function toggleEditMode() {
-  if (state.isEditMode) {
-    // Save editor → doc
-    doc().text = $('editor').value;
-    doc().highlights = []; // reset highlights on edit
-  }
-  state.isEditMode = !state.isEditMode;
-  stopTTS();
-  renderStats();
-  renderTextArea();
-}
-
-function onEditorInput() {
-  // Live update word count
-  doc().text = $('editor').value;
-  renderStats();
-}
-
-// ═══════════════════════════════════════════════════════════════
-// HIGHLIGHTS
-// ═══════════════════════════════════════════════════════════════
-function selectHlColor(el) {
-  document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected'));
-  el.classList.add('selected');
-  state.activeHlColor = el.dataset.color;
-}
-
-let _selRange = null;
-
-function onTextSelect(e) {
-  const sel = window.getSelection();
-  if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
-
-  const range = sel.getRangeAt(0);
-  const reader = $('reader');
-
-  // Calculate character offsets relative to reader text content
-  const preRange = document.createRange();
-  preRange.setStart(reader, 0);
-  preRange.setEnd(range.startContainer, range.startOffset);
-  const start = preRange.toString().length;
-  const selectedText = range.toString();
-  const end = start + selectedText.length;
-
-  if (end <= start) return;
-
-  _selRange = { start, end };
-
-  // Show context menu
-  const rect = range.getBoundingClientRect();
-  const menu = $('ctx-menu');
-  menu.style.top = `${rect.bottom + window.scrollY + 6}px`;
-  menu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 180))}px`;
-  menu.classList.add('show');
-
+function onSel(e) {
+  const sel=window.getSelection();
+  if(!sel||sel.isCollapsed||!sel.rangeCount)return;
+  const range=sel.getRangeAt(0);
+  const reader=$('reader');
+  if(!reader.contains(range.startContainer))return;
+  const pre=document.createRange();
+  pre.setStart(reader,0); pre.setEnd(range.startContainer,range.startOffset);
+  const s=pre.toString().length;
+  const txt=range.toString();
+  if(!txt.trim())return;
+  _selRange={s,e:s+txt.length};
+  const rect=range.getBoundingClientRect();
+  const menu=$('ctxmenu');
+  const top=Math.min(rect.bottom+window.scrollY+4, window.innerHeight-80);
+  const left=Math.max(8, Math.min(rect.left, window.innerWidth-165));
+  menu.style.top=`${top}px`; menu.style.left=`${left}px`;
+  menu.classList.add('on');
   e.stopPropagation();
 }
 
-document.addEventListener('click', (e) => {
-  if (!$('ctx-menu').contains(e.target)) $('ctx-menu').classList.remove('show');
+document.addEventListener('click', e=>{
+  if(!$('ctxmenu').contains(e.target)) $('ctxmenu').classList.remove('on');
 });
 
-function applyHighlight() {
-  if (!_selRange) return;
-  const { start, end } = _selRange;
-  const existing = doc().highlights.filter(h => !(h.end <= start || h.start >= end));
-  if (existing.length === 0) {
-    doc().highlights.push({ start, end, color: state.activeHlColor });
-  } else {
-    // Merge: replace with new color
-    doc().highlights = doc().highlights.filter(h => h.end <= start || h.start >= end);
-    doc().highlights.push({ start, end, color: state.activeHlColor });
-  }
-  $('ctx-menu').classList.remove('show');
+function applyHL() {
+  if(!_selRange)return;
+  const {s,e}=_selRange;
+  doc().hl=doc().hl.filter(h=>h.e<=s||h.s>=e);
+  doc().hl.push({s,e,c:S.hlColor});
+  $('ctxmenu').classList.remove('on');
   window.getSelection()?.removeAllRanges();
-  renderStats();
-  renderReader();
+  renderStats(); renderReader();
 }
 
-function removeHighlightCtx() {
-  if (!_selRange) return;
-  const { start } = _selRange;
-  doc().highlights = doc().highlights.filter(h => !(h.start <= start && h.end >= start));
-  $('ctx-menu').classList.remove('show');
-  renderStats();
-  renderReader();
+function removeHL() {
+  if(!_selRange)return;
+  doc().hl=doc().hl.filter(h=>!(h.s<=_selRange.s&&h.e>=_selRange.s));
+  $('ctxmenu').classList.remove('on');
+  renderStats(); renderReader();
 }
 
-function clearHighlights() {
-  doc().highlights = [];
-  renderStats();
-  renderReader();
-}
+function clearHighlights() { doc().hl=[]; renderStats(); renderReader(); }
 
-// ═══════════════════════════════════════════════════════════════
-// TTS
-// ═══════════════════════════════════════════════════════════════
-let _synth = window.speechSynthesis;
-let _utt = null;
-let _voices = [];
-let _charOffset = 0;
+// ── TTS ─────────────────────────────────────────────────────────────────────
+const synth=window.speechSynthesis;
+let _utt=null;
 
-window.speechSynthesis.onvoiceschanged = () => {
-  _voices = _synth.getVoices();
-};
+window.speechSynthesis.onvoiceschanged=()=>{ _voices=synth.getVoices(); };
 
-function buildTextToRead(text, highlights) {
-  if (!highlights.length) return text;
-  const sorted = [...highlights].sort((a, b) => a.start - b.start);
-  let out = '', cursor = 0;
-  sorted.forEach(h => {
-    if (h.start > cursor) out += text.slice(cursor, h.start);
-    out += '... ' + text.slice(h.start, h.end) + ' ...';
-    cursor = h.end;
+function buildReadText(text,hls) {
+  if(!hls.length)return text;
+  const sorted=[...hls].sort((a,b)=>a.s-b.s);
+  let out='',cur=0;
+  sorted.forEach(h=>{
+    if(h.s>cur)out+=text.slice(cur,h.s);
+    out+='... '+text.slice(h.s,h.e)+' ...';
+    cur=h.e;
   });
-  if (cursor < text.length) out += text.slice(cursor);
+  if(cur<text.length)out+=text.slice(cur);
   return out;
 }
 
 function togglePlay() {
-  if (state.ttsState === 'playing') pauseTTS();
-  else if (state.ttsState === 'paused') resumeTTS();
+  if(S.tts==='playing')pauseTTS();
+  else if(S.tts==='paused')resumeTTS();
   else startTTS();
 }
 
 function startTTS() {
-  const text = doc().text;
-  if (!text) return;
-
-  _synth.cancel();
-  const textToRead = buildTextToRead(text, doc().highlights);
-  _utt = new SpeechSynthesisUtterance(textToRead);
-  _utt.lang = state.lang;
-  _utt.rate = parseFloat($('speed-slider').value);
-  _utt.pitch = state.pitch;
-
-  const voice = _voices.find(v => v.lang === state.lang) ||
-                _voices.find(v => v.lang.startsWith(state.lang.slice(0,2)));
-  if (voice) _utt.voice = voice;
-
-  _utt.onstart = () => setTtsState('playing');
-  _utt.onpause = () => setTtsState('paused');
-  _utt.onresume = () => setTtsState('playing');
-  _utt.onend = () => { setTtsState('stopped'); renderReader(); renderProgress(100); };
-  _utt.onerror = () => setTtsState('stopped');
-
-  _utt.onboundary = (e) => {
-    if (e.name !== 'word') return;
-    const progress = (e.charIndex / textToRead.length) * 100;
-    renderProgress(progress);
-
-    // Map back to original text for highlight
-    const charIdx = e.charIndex;
-    // approximate mapping (good enough for word highlight)
-    const ratio = charIdx / textToRead.length;
-    const approxPos = Math.round(ratio * text.length);
-    const wordEnd = approxPos + (e.charLength || 5);
-    renderReader(approxPos, Math.min(wordEnd, text.length));
+  const text=doc().text; if(!text)return;
+  synth.cancel();
+  const readText=buildReadText(text,doc().hl);
+  _utt=new SpeechSynthesisUtterance(readText);
+  _utt.lang=S.lang; _utt.rate=parseFloat($('spslider').value); _utt.pitch=S.pitch;
+  const v=_voices.find(v=>v.lang===S.lang)||_voices.find(v=>v.lang.startsWith(S.lang.slice(0,2)));
+  if(v)_utt.voice=v;
+  _utt.onstart=()=>setTTS('playing');
+  _utt.onpause=()=>setTTS('paused');
+  _utt.onresume=()=>setTTS('playing');
+  _utt.onend=()=>{ setTTS('stopped'); renderReader(); renderProgress(100); };
+  _utt.onerror=()=>setTTS('stopped');
+  _utt.onboundary=e=>{
+    if(e.name!=='word')return;
+    const pct=(e.charIndex/readText.length)*100;
+    renderProgress(pct);
+    const ratio=e.charIndex/readText.length;
+    const approx=Math.round(ratio*text.length);
+    const end=Math.min(approx+(e.charLength||5),text.length);
+    renderReader(approx,end);
   };
-
-  _synth.speak(_utt);
+  synth.speak(_utt);
 }
 
-function pauseTTS() { _synth.pause(); setTtsState('paused'); }
-function resumeTTS() { _synth.resume(); setTtsState('playing'); }
-function stopTTS() {
-  _synth.cancel();
-  setTtsState('stopped');
-  renderReader();
-  renderProgress(0);
+function pauseTTS(){synth.pause();setTTS('paused');}
+function resumeTTS(){synth.resume();setTTS('playing');}
+function stopTTS(){synth.cancel();setTTS('stopped');renderReader();renderProgress(0);}
+function setTTS(s){S.tts=s;updatePlayer();}
+
+function updatePlayer() {
+  const pl=S.tts==='playing', pa=S.tts==='paused';
+  const b=$('sbadge');
+  b.textContent=pl?'Leyendo':pa?'Pausado':'Listo';
+  b.className=pl?'pl':pa?'pa':'';
+  $('iplay').style.display=pl?'none':'';
+  $('ipause').style.display=pl?'':'none';
+  $('pgstatus').textContent=pl?'Leyendo...':pa?'Pausado':'';
 }
 
-function setTtsState(s) {
-  state.ttsState = s;
-  updatePlayerState();
-}
-
-function updatePlayerState() {
-  const badge = $('status-badge');
-  const playBtn = $('play-btn');
-  const iconPlay = $('icon-play');
-  const iconPause = $('icon-pause');
-
-  if (state.ttsState === 'playing') {
-    badge.textContent = 'Leyendo'; badge.className = 'playing';
-    iconPlay.style.display = 'none'; iconPause.style.display = '';
-    $('progress-status').textContent = 'Leyendo...';
-  } else if (state.ttsState === 'paused') {
-    badge.textContent = 'Pausado'; badge.className = 'paused';
-    iconPlay.style.display = ''; iconPause.style.display = 'none';
-    $('progress-status').textContent = 'Pausado';
-  } else {
-    badge.textContent = 'Listo'; badge.className = '';
-    iconPlay.style.display = ''; iconPause.style.display = 'none';
-    $('progress-status').textContent = '';
-  }
-}
-
-function onSpeedChange() {
-  const val = parseFloat($('speed-slider').value);
-  $('speed-val').textContent = `${val.toFixed(2).replace('.00','').replace(/\.?0$/,'')}×`;
-  if (_utt && state.ttsState === 'playing') {
-    stopTTS(); startTTS(); // restart with new rate
-  }
+function onSpeed() {
+  const v=parseFloat($('spslider').value);
+  $('spval').textContent=`${v.toFixed(2).replace(/\.?0+$/,'')}×`;
   renderStats();
+  if(S.tts==='playing'){stopTTS();startTTS();}
 }
 
-// exportAudio is defined below with full offline support
-
-// ═══════════════════════════════════════════════════════════════
-// IMPORT
-// ═══════════════════════════════════════════════════════════════
-function openImportSheet() {
-  const html = `
-  <div class="overlay" onclick="closeAllOverlays()">
+// ── FILE IMPORT ──────────────────────────────────────────────────────────────
+function openImport() {
+  $('oc').innerHTML=`
+  <div class="overlay" onclick="closeOC()">
     <div class="sheet" onclick="event.stopPropagation()">
-      <div class="sheet-handle"></div>
-      <div class="sheet-title">¿Qué quieres cargar?</div>
-
-      <div class="import-opt" onclick="triggerFileInput()">
-        <div class="import-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        </div>
-        <div>
-          <div class="import-title">Documento completo</div>
-          <div class="import-sub">TXT, PDF o Word (.docx)</div>
-        </div>
+      <div class="handle"></div>
+      <div class="stitle">¿Qué quieres cargar?</div>
+      <div class="iopt" onclick="closeOC();$('filein').click()">
+        <div class="iico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+        <div><div class="ititle">Abrir archivo</div><div class="isub">TXT, PDF o Word (.docx)</div></div>
       </div>
-
-      <div class="import-opt" onclick="openPasteDialog('resumen')">
-        <div class="import-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
-        </div>
-        <div>
-          <div class="import-title">Pegar mi resumen</div>
-          <div class="import-sub">Escribe o pega texto directamente</div>
-        </div>
+      <div class="iopt" onclick="closeOC();openPaste()">
+        <div class="iico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></div>
+        <div><div class="ititle">Pegar texto o resumen</div><div class="isub">Escribe o pega directamente</div></div>
       </div>
     </div>
   </div>`;
-  $('overlay-container').innerHTML = html;
-
-  // Hidden file input
-  if (!$('file-input')) {
-    const fi = document.createElement('input');
-    fi.type = 'file'; fi.id = 'file-input'; fi.accept = '.txt,.pdf,.docx';
-    fi.style.display = 'none';
-    fi.onchange = handleFileInput;
-    document.body.appendChild(fi);
-  }
 }
 
-function triggerFileInput() {
-  closeAllOverlays();
-  $('file-input').click();
-}
-
-async function handleFileInput(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const ext = file.name.split('.').pop().toLowerCase();
-
+async function onFile(e) {
+  const file=e.target.files[0]; if(!file)return;
+  const ext=file.name.split('.').pop().toLowerCase();
+  toast('Leyendo archivo...');
   try {
-    let text = '';
-    if (ext === 'txt') {
-      text = await file.text();
-    } else if (ext === 'pdf') {
-      text = await extractPdfText(file);
-    } else if (ext === 'docx') {
-      text = await extractDocxText(file);
-    }
-    if (text.trim()) {
-      loadText(text, file.name.replace(/\.[^.]+$/, ''));
+    let text='';
+    if(ext==='txt') {
+      text=await file.text();
+    } else if(ext==='pdf') {
+      text=await readPdf(file);
+    } else if(ext==='docx') {
+      text=await readDocx(file);
     } else {
-      showToast('No se pudo leer el archivo', 'error');
+      toast('Formato no soportado',false); return;
     }
-  } catch (err) {
-    showToast('Error al leer: ' + err.message, 'error');
+    if(!text.trim()){toast('El archivo está vacío o no se pudo leer',false);return;}
+    loadText(text, file.name.replace(/\.[^.]+$/,''));
+  } catch(err) {
+    toast('Error al leer: '+err.message,false);
+    console.error(err);
   }
-  e.target.value = '';
+  e.target.value='';
 }
 
-async function extractPdfText(file) {
-  // Use PDF.js CDN
-  if (!window.pdfjsLib) {
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+async function readPdf(file) {
+  // PDF.js ya está cargado en el head
+  if(!window.pdfjsLib) throw new Error('PDF.js no disponible');
+  pdfjsLib.GlobalWorkerOptions.workerSrc=
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const ab=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:ab}).promise;
+  let out='';
+  for(let i=1;i<=pdf.numPages;i++){
+    const page=await pdf.getPage(i);
+    const content=await page.getTextContent();
+    out+=content.items.map(it=>it.str).join(' ')+'\n\n';
   }
-  const ab = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
-  let text = '';
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    text += content.items.map(it => it.str).join(' ') + '\n';
-  }
-  return text;
+  return out;
 }
 
-async function extractDocxText(file) {
-  if (!window.mammoth) {
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js');
-  }
-  const ab = await file.arrayBuffer();
-  const result = await mammoth.extractRawText({ arrayBuffer: ab });
+async function readDocx(file) {
+  if(!window.mammoth) throw new Error('Mammoth no disponible');
+  const ab=await file.arrayBuffer();
+  const result=await mammoth.extractRawText({arrayBuffer:ab});
   return result.value;
 }
 
-function loadScript(src) {
-  return new Promise((res, rej) => {
-    const s = document.createElement('script');
-    s.src = src; s.onload = res; s.onerror = rej;
-    document.head.appendChild(s);
-  });
-}
-
-function loadText(text, title = '') {
+function loadText(text, title='') {
   stopTTS();
-  doc().text = text;
-  doc().highlights = [];
-  if (title) doc().title = title.slice(0, 20);
-  state.isEditMode = false;
+  doc().text=text; doc().hl=[];
+  if(title) doc().title=title.slice(0,22);
+  S.editMode=false;
   renderAll();
-  showToast('Documento cargado ✓');
+  toast('Documento cargado ✓');
 }
 
-function openPasteDialog(mode = '') {
-  closeAllOverlays();
-  const label = mode === 'resumen' ? 'Pegar mi resumen' : 'Agregar texto';
-  const html = `
-  <div class="overlay center" onclick="closeAllOverlays()">
-    <div class="modal-box" onclick="event.stopPropagation()">
-      <div class="modal-title">${label}</div>
-      <div class="modal-sub">Pega o escribe el texto que quieres leer</div>
-      <textarea class="field" id="paste-field" rows="7" placeholder="Pega tu texto aquí..."></textarea>
-      <div class="btn-row">
-        <button class="btn btn-ghost" onclick="closeAllOverlays()">Cancelar</button>
-        <button class="btn btn-accent" onclick="applyPastedText()">Usar texto</button>
+function openPaste() {
+  $('oc').innerHTML=`
+  <div class="overlay ctr" onclick="closeOC()">
+    <div class="mbox" onclick="event.stopPropagation()">
+      <div class="mtitle">Pegar texto</div>
+      <div class="msub">Escribe o pega el texto que quieres leer</div>
+      <textarea class="field" id="pastef" rows="7" placeholder="Pega tu texto aquí..."></textarea>
+      <div class="brow">
+        <button class="btn bg" onclick="closeOC()">Cancelar</button>
+        <button class="btn ba" onclick="applyPaste()">Usar texto</button>
       </div>
     </div>
   </div>`;
-  $('overlay-container').innerHTML = html;
-  setTimeout(() => $('paste-field')?.focus(), 100);
+  setTimeout(()=>$('pastef')?.focus(),80);
 }
 
-function applyPastedText() {
-  const text = $('paste-field')?.value.trim();
-  if (!text) return;
-  loadText(text);
-  closeAllOverlays();
+function applyPaste() {
+  const t=$('pastef')?.value.trim(); if(!t)return;
+  closeOC(); loadText(t);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// AI SUMMARY
-// ═══════════════════════════════════════════════════════════════
-const SUMMARY_TYPES = [
-  { id: 'short', emoji: '📝', title: 'Resumen corto', sub: '1 párrafo con la idea principal',
-    prompt: 'Haz un resumen conciso en 1 párrafo del siguiente texto.' },
-  { id: 'bullets', emoji: '🔑', title: 'Puntos clave', sub: 'Lista de los puntos más importantes',
-    prompt: 'Extrae los puntos clave del siguiente texto en formato de lista con viñetas (•).' },
-  { id: 'detailed', emoji: '📖', title: 'Resumen detallado', sub: 'Completo por secciones',
-    prompt: 'Haz un resumen detallado por secciones del siguiente texto, manteniendo las ideas principales.' },
-];
+// ── EXPORT / DOWNLOAD ────────────────────────────────────────────────────────
+function openExport() {
+  const text=doc().text; if(!text)return;
+  const readText=buildReadText(text,doc().hl);
+  const fname=(doc().title||'vozlectora').replace(/[^\w\s-]/g,'').trim()||'vozlectora';
+  const canRec=!!(window.MediaRecorder&&navigator.mediaDevices?.getUserMedia);
+  const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)&&!window.MSStream;
 
-let _selectedSummaryType = 'short';
+  const audioOpt = (canRec&&!isIOS) ? `
+    <div class="iopt" onclick="closeOC();recordAudio(${JSON.stringify(readText)},${JSON.stringify(fname)})">
+      <div class="iico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></div>
+      <div><div class="ititle">Grabar y guardar audio (.webm)</div><div class="isub">Funciona en Chrome y Firefox — Android y PC</div></div>
+    </div>` : `
+    <div class="iopt" style="opacity:.35;cursor:not-allowed">
+      <div class="iico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg></div>
+      <div><div class="ititle">Grabar audio</div><div class="isub">No disponible en Safari / iOS — usa el .txt</div></div>
+    </div>`;
 
-function openSummarySheet() {
-  const opts = SUMMARY_TYPES.map(t => `
-    <div class="summary-opt ${t.id === _selectedSummaryType ? 'selected' : ''}"
-         onclick="selectSummaryType('${t.id}', this)">
-      <div class="summary-opt-icon">${t.emoji}</div>
-      <div>
-        <div class="summary-opt-title">${t.title}</div>
-        <div class="summary-opt-sub">${t.sub}</div>
-      </div>
-    </div>`).join('');
-
-  const html = `
-  <div class="overlay" onclick="closeAllOverlays()">
+  $('oc').innerHTML=`
+  <div class="overlay" onclick="closeOC()">
     <div class="sheet" onclick="event.stopPropagation()">
-      <div class="sheet-handle"></div>
-      <div class="sheet-title">Resumir con IA</div>
+      <div class="handle"></div>
+      <div class="stitle">Guardar para escuchar sin internet</div>
+      ${audioOpt}
+      <div class="iopt" onclick="closeOC();dlTxt(${JSON.stringify(readText)},${JSON.stringify(fname)})">
+        <div class="iico" style="background:rgba(76,143,224,.12)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <div><div class="ititle" style="color:var(--blue)">Guardar como texto (.txt)</div>
+          <div class="isub">En iPhone: ábrelo con la app "Voz" para escucharlo offline</div></div>
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin-top:12px;line-height:1.6;
+        padding:10px;background:var(--s2);border-radius:10px">
+        📱 <strong style="color:var(--text)">iPhone (Safari/Chrome/Firefox):</strong>
+        descarga el <strong style="color:var(--blue)">.txt</strong> → abre la app <strong style="color:var(--accent)">Voz</strong>
+        (preinstalada en iOS) → importa el archivo → escúchalo sin internet.<br><br>
+        🤖 <strong style="color:var(--text)">Android / PC:</strong>
+        usa el audio <strong style="color:var(--accent)">.webm</strong> directamente en cualquier reproductor.
+      </p>
+    </div>
+  </div>`;
+}
+
+async function recordAudio(text, fname) {
+  try {
+    toast('Grabando... espera que termine de leer');
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    const mime=MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ?'audio/webm;codecs=opus':'audio/webm';
+    const rec=new MediaRecorder(stream,{mimeType:mime});
+    const chunks=[];
+    rec.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
+    rec.onstop=()=>{
+      const blob=new Blob(chunks,{type:mime});
+      dlBlob(blob,`${fname}.webm`);
+      stream.getTracks().forEach(t=>t.stop());
+      toast('Audio guardado ✓');
+    };
+    rec.start(100);
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang=S.lang; u.rate=parseFloat($('spslider').value); u.pitch=S.pitch;
+    const v=_voices.find(v=>v.lang===S.lang)||_voices.find(v=>v.lang.startsWith(S.lang.slice(0,2)));
+    if(v)u.voice=v;
+    u.onend=()=>setTimeout(()=>rec.stop(),400);
+    u.onerror=()=>{rec.stop();toast('Error al grabar',false);};
+    synth.cancel(); synth.speak(u);
+  } catch(err) {
+    toast('No se pudo acceder al micrófono: '+err.message,false);
+  }
+}
+
+function dlTxt(text,fname) {
+  dlBlob(new Blob([text],{type:'text/plain;charset=utf-8'}),`${fname}.txt`);
+  toast('Texto guardado ✓');
+}
+
+function dlBlob(blob,filename) {
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+
+// ── AI SUMMARY ───────────────────────────────────────────────────────────────
+const STYPES=[
+  {id:'short', e:'📝', t:'Resumen corto', s:'1 párrafo con la idea principal',
+   p:'Haz un resumen conciso en 1 párrafo del siguiente texto.'},
+  {id:'bullets',e:'🔑',t:'Puntos clave',s:'Lista de los puntos más importantes',
+   p:'Extrae los puntos clave del siguiente texto en formato de lista con viñetas (•).'},
+  {id:'detailed',e:'📖',t:'Resumen detallado',s:'Completo por secciones',
+   p:'Haz un resumen detallado por secciones del siguiente texto.'},
+];
+let _stype='short';
+
+function openSummary() {
+  const opts=STYPES.map(t=>`
+    <div class="sopt${t.id===_stype?' sel':''}" onclick="selStype('${t.id}',this)">
+      <div class="sopticon">${t.e}</div>
+      <div><div style="font-size:13px;font-weight:600;color:var(--text)">${t.t}</div>
+        <div style="font-size:11px;color:var(--muted)">${t.s}</div></div>
+    </div>`).join('');
+  $('oc').innerHTML=`
+  <div class="overlay" onclick="closeOC()">
+    <div class="sheet" onclick="event.stopPropagation()">
+      <div class="handle"></div>
+      <div class="stitle">Resumir con IA</div>
       ${opts}
-      <div id="summary-error" style="display:none;color:var(--danger);font-size:12px;margin:10px 0;padding:10px;background:rgba(224,85,85,.1);border-radius:10px;"></div>
-      <button class="btn btn-accent" style="width:100%;margin-top:8px;padding:13px" id="btn-do-summary" onclick="doSummary()">
+      <div id="serr" style="display:none;color:var(--danger);font-size:12px;
+        margin:8px 0;padding:10px;background:rgba(224,85,85,.1);border-radius:9px"></div>
+      <button class="btn ba" style="width:100%;padding:12px;margin-top:8px" id="bsum" onclick="doSummary()">
         Generar resumen
       </button>
     </div>
   </div>`;
-  $('overlay-container').innerHTML = html;
 }
 
-function selectSummaryType(id, el) {
-  _selectedSummaryType = id;
-  document.querySelectorAll('.summary-opt').forEach(o => o.classList.remove('selected'));
-  el.classList.add('selected');
+function selStype(id,el) {
+  _stype=id;
+  document.querySelectorAll('.sopt').forEach(o=>o.classList.remove('sel'));
+  el.classList.add('sel');
 }
 
 async function doSummary() {
-  const apiKey = API_KEY;
-  if (!apiKey || apiKey === 'TU_API_KEY_AQUI') {
-    $('summary-error').style.display = '';
-    $('summary-error').textContent = 'Falta la API key. Edita el archivo HTML y reemplaza TU_API_KEY_AQUI con tu clave de Anthropic.';
+  if(!API_KEY||API_KEY==='TU_API_KEY_AQUI'){
+    $('serr').style.display='';
+    $('serr').textContent='Falta la API key. Edita el archivo HTML y reemplaza TU_API_KEY_AQUI con tu clave de Anthropic.';
     return;
   }
-
-  const text = doc().text;
-  const type = SUMMARY_TYPES.find(t => t.id === _selectedSummaryType);
-  const btn = $('btn-do-summary');
-  btn.innerHTML = '<span class="ai-spinner"></span> Generando...';
-  btn.disabled = true;
-  $('summary-error').style.display = 'none';
-
+  const text=doc().text;
+  const type=STYPES.find(t=>t.id===_stype);
+  const btn=$('bsum');
+  btn.innerHTML='<span class="spin"></span>Generando...'; btn.disabled=true;
+  $('serr').style.display='none';
   try {
-    const truncated = text.length > 60000 ? text.slice(0, 60000) + '\n\n[Texto truncado]' : text;
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
+    const trunc=text.length>60000?text.slice(0,60000)+'\n\n[Texto truncado]':text;
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':API_KEY,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true',
       },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
-        messages: [{
-          role: 'user',
-          content: `${type.prompt}\n\nResponde en el mismo idioma del texto.\n\nTexto:\n${truncated}`
-        }]
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:1024,
+        messages:[{role:'user',content:`${type.p}\n\nResponde en el mismo idioma del texto.\n\nTexto:\n${trunc}`}]
       })
     });
-
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error?.message || `Error ${res.status}`);
-    }
-
-    const data = await res.json();
-    const summary = data.content[0].text;
-    closeAllOverlays();
-    showSummaryResult(summary, type.title);
-  } catch (err) {
-    $('summary-error').style.display = '';
-    $('summary-error').textContent = err.message;
-    btn.innerHTML = 'Generar resumen';
-    btn.disabled = false;
+    if(!res.ok){const e=await res.json();throw new Error(e.error?.message||`Error ${res.status}`);}
+    const data=await res.json();
+    const summary=data.content[0].text;
+    closeOC();
+    showSummaryResult(summary,type.t);
+  } catch(err){
+    $('serr').style.display='';
+    $('serr').textContent=err.message;
+    btn.innerHTML='Generar resumen'; btn.disabled=false;
   }
 }
 
-function showSummaryResult(summary, typeTitle) {
-  const html = `
-  <div class="overlay center" onclick="closeAllOverlays()">
-    <div class="modal-box" onclick="event.stopPropagation()">
-      <div class="modal-title">✨ ${typeTitle}</div>
-      <div style="max-height:55vh;overflow-y:auto;margin-bottom:18px;">
-        <p style="font-size:14px;line-height:1.7;color:var(--text);white-space:pre-wrap">${escapeHtml(summary)}</p>
+function showSummaryResult(summary,title) {
+  $('oc').innerHTML=`
+  <div class="overlay ctr" onclick="closeOC()">
+    <div class="mbox" onclick="event.stopPropagation()">
+      <div class="mtitle">✨ ${title}</div>
+      <div style="max-height:52vh;overflow-y:auto;margin-bottom:16px">
+        <p style="font-size:13px;line-height:1.75;color:var(--text);white-space:pre-wrap">${esc(summary)}</p>
       </div>
-      <div class="btn-row">
-        <button class="btn btn-ghost" onclick="closeAllOverlays()">Descartar</button>
-        <button class="btn btn-accent" onclick="useSummary(${JSON.stringify(summary).split('').map(c => c === '"' ? '\\"' : c).join('')})">
-          Usar resumen
-        </button>
+      <div class="brow">
+        <button class="btn bg" onclick="closeOC()">Descartar</button>
+        <button class="btn ba" onclick="useSummary(this)">Usar resumen</button>
       </div>
     </div>
   </div>`;
-  $('overlay-container').innerHTML = html;
+  // Store summary in button for retrieval
+  $('oc').querySelector('.ba').dataset.summary=summary;
 }
 
-function useSummary(summary) {
-  closeAllOverlays();
-  loadText(summary, 'Resumen IA');
+function useSummary(btn) {
+  const s=btn.dataset.summary; closeOC(); loadText(s,'Resumen IA');
 }
 
-// ═══════════════════════════════════════════════════════════════
-// SETTINGS
-// ═══════════════════════════════════════════════════════════════
-const LANGS = [
-  { code: 'es-ES', name: 'Español (España)' },
-  { code: 'es-MX', name: 'Español (México)' },
-  { code: 'es-AR', name: 'Español (Argentina)' },
-  { code: 'en-US', name: 'English (US)' },
-  { code: 'en-GB', name: 'English (UK)' },
+// ── SETTINGS ─────────────────────────────────────────────────────────────────
+const LANGS=[
+  {c:'es-ES',n:'Español (España)'},{c:'es-MX',n:'Español (México)'},
+  {c:'es-AR',n:'Español (Argentina)'},{c:'en-US',n:'English (US)'},{c:'en-GB',n:'English (UK)'},
 ];
 
 function toggleSettings() {
-  const btn = $('btn-settings');
-  if ($('overlay-container').innerHTML && $('overlay-container').querySelector('.settings-sheet')) {
-    closeAllOverlays();
-    btn.classList.remove('active');
-    return;
-  }
-  btn.classList.add('active');
-  const langBtns = LANGS.map(l => `
-    <button class="lang-btn ${l.code === state.lang ? 'selected' : ''}"
-            onclick="setLang('${l.code}', this)">${l.name}</button>`).join('');
-
-  const html = `
-  <div class="overlay" onclick="closeAllOverlays(); $('btn-settings').classList.remove('active')">
-    <div class="sheet settings-sheet" onclick="event.stopPropagation()">
-      <div class="sheet-handle"></div>
-      <div class="sheet-title">Ajustes de voz</div>
-
-      <div class="settings-label">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-        Idioma
+  const btn=$('btnsett');
+  if($('oc').querySelector('.ssheet')){closeOC();btn.classList.remove('act');return;}
+  btn.classList.add('act');
+  const lbs=LANGS.map(l=>`<button class="lbtn${l.c===S.lang?' sel':''}" onclick="setLang('${l.c}',this)">${l.n}</button>`).join('');
+  $('oc').innerHTML=`
+  <div class="overlay" onclick="closeOC();$('btnsett').classList.remove('act')">
+    <div class="sheet ssheet" onclick="event.stopPropagation()">
+      <div class="handle"></div>
+      <div class="stitle">Ajustes de voz</div>
+      <div class="slabel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Idioma
       </div>
-      <div class="lang-grid">${langBtns}</div>
-
-      <div class="settings-label">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        Tono de voz
+      <div class="lgrid">${lbs}</div>
+      <div class="slabel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Tono de voz
       </div>
-      <div class="pitch-row">
+      <div class="prow">
         <label>Tono</label>
-        <input type="range" class="pitch-slider" id="pitch-slider"
-               min="0.5" max="2.0" step="0.1" value="${state.pitch}"
-               oninput="onPitchChange()">
-        <span class="pitch-val" id="pitch-val">${state.pitch.toFixed(1)}</span>
+        <input type="range" class="pslider" id="pslider" min="0.5" max="2.0" step="0.1" value="${S.pitch}" oninput="onPitch()">
+        <span class="pval" id="pval">${S.pitch.toFixed(1)}</span>
       </div>
-
-      <p style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5">
+      <p style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.6;
+        padding:9px;background:var(--s2);border-radius:9px">
         💡 Las voces disponibles dependen de las instaladas en tu dispositivo.
+        En iPhone, ve a Ajustes → Accesibilidad → Contenido leído → Voces para agregar más.
       </p>
     </div>
   </div>`;
-  $('overlay-container').innerHTML = html;
 }
 
-function setLang(code, el) {
-  state.lang = code;
-  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('selected'));
-  el.classList.add('selected');
+function setLang(c,el) {
+  S.lang=c;
+  document.querySelectorAll('.lbtn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
 }
 
-function onPitchChange() {
-  state.pitch = parseFloat($('pitch-slider').value);
-  $('pitch-val').textContent = state.pitch.toFixed(1);
+function onPitch() {
+  S.pitch=parseFloat($('pslider').value);
+  $('pval').textContent=S.pitch.toFixed(1);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// EXPORT AUDIO — mejorado con descarga offline
-// ═══════════════════════════════════════════════════════════════
-function exportAudio() {
-  const text = doc().text;
-  if (!text) return;
-  const textToRead = buildTextToRead(text, doc().highlights);
-  const filename = (doc().title || 'vozlectora').replace(/[^\w\s-]/g, '').trim();
-
-  // Detectar capacidades del navegador
-  const canRecord = !!(window.MediaRecorder && navigator.mediaDevices?.getUserMedia);
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-
-  if (isIOS || !canRecord) {
-    // iOS y navegadores sin MediaRecorder → descarga TXT + instrucciones
-    showExportOptionsModal(textToRead, filename, false);
-  } else {
-    showExportOptionsModal(textToRead, filename, true);
-  }
+// ── OFFLINE DETECTION ────────────────────────────────────────────────────────
+function checkOnline() {
+  $('offbadge').classList.toggle('on', !navigator.onLine);
 }
 
-function showExportOptionsModal(textToRead, filename, canRecord) {
-  const recordOption = canRecord ? `
-    <div class="import-opt" onclick="recordAndDownload(${JSON.stringify(textToRead)}, '${filename}'); closeAllOverlays()">
-      <div class="import-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
-      </div>
-      <div>
-        <div class="import-title">Guardar audio (.webm)</div>
-        <div class="import-sub">Graba la voz y descarga el archivo</div>
-      </div>
-    </div>` : `
-    <div class="import-opt" style="opacity:.4;cursor:not-allowed">
-      <div class="import-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
-      </div>
-      <div>
-        <div class="import-title">Guardar audio</div>
-        <div class="import-sub">No disponible en este navegador</div>
-      </div>
-    </div>`;
-
-  const html = `
-  <div class="overlay" onclick="closeAllOverlays()">
-    <div class="sheet" onclick="event.stopPropagation()">
-      <div class="sheet-handle"></div>
-      <div class="sheet-title">Guardar para escuchar sin internet</div>
-
-      ${recordOption}
-
-      <div class="import-opt" onclick="downloadTxt(${JSON.stringify(textToRead)}, '${filename}'); closeAllOverlays()">
-        <div class="import-icon" style="background:rgba(76,143,224,.12)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-        </div>
-        <div>
-          <div class="import-title" style="color:var(--blue)">Guardar texto (.txt)</div>
-          <div class="import-sub">Ábrete luego con cualquier app de TTS offline</div>
-        </div>
-      </div>
-
-      <p style="font-size:11px;color:var(--muted);margin-top:14px;line-height:1.6;padding:10px;background:var(--surface2);border-radius:10px">
-        💡 <strong style="color:var(--text)">En iPhone:</strong> descarga el .txt y ábrelo con la app <strong style="color:var(--accent)">Voz</strong> (preinstalada en iOS) para escucharlo sin internet.<br><br>
-        💡 <strong style="color:var(--text)">En Android:</strong> usa el audio .webm directamente o ábrelo con cualquier reproductor.
-      </p>
-    </div>
-  </div>`;
-  $('overlay-container').innerHTML = html;
+// ── SERVICE WORKER ───────────────────────────────────────────────────────────
+function registerSW() {
+  if(!('serviceWorker' in navigator))return;
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
 }
 
-async function recordAndDownload(text, filename) {
-  try {
-    showToast('Grabando audio... espera', 'success');
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-      ? 'audio/webm;codecs=opus' : 'audio/webm';
-    const recorder = new MediaRecorder(stream, { mimeType });
-    const chunks = [];
-    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = `${filename}.webm`;
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      stream.getTracks().forEach(t => t.stop());
-      showToast('Audio guardado ✓', 'success');
-    };
-    recorder.start(100);
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = state.lang;
-    utt.rate = parseFloat($('speed-slider').value);
-    utt.pitch = state.pitch;
-    const voice = _voices.find(v => v.lang === state.lang) || _voices.find(v => v.lang.startsWith(state.lang.slice(0,2)));
-    if (voice) utt.voice = voice;
-    utt.onend = () => { setTimeout(() => recorder.stop(), 300); };
-    utt.onerror = () => { recorder.stop(); showToast('Error al grabar', 'error'); };
-    _synth.cancel();
-    _synth.speak(utt);
-  } catch(e) {
-    showToast('No se pudo acceder al micrófono', 'error');
-  }
-}
-
-function downloadTxt(text, filename) {
-  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `${filename}.txt`;
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('Texto guardado ✓', 'success');
-}
-
-// ═══════════════════════════════════════════════════════════════
-// OFFLINE / PWA / BROWSER DETECTION
-// ═══════════════════════════════════════════════════════════════
-function updateOnlineStatus() {
-  const badge = $('offline-badge');
-  if (navigator.onLine) {
-    badge.classList.remove('show');
-  } else {
-    badge.classList.add('show');
-  }
-}
-
-function detectBrowserAndShowHint() {
-  const ua = navigator.userAgent;
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-    || window.navigator.standalone === true;
-
-  if (isStandalone) return; // ya instalada, no mostrar
-
-  const isIOS = /iPad|iPhone|iPod/.test(ua);
-  const isSafari = /Safari/.test(ua) && !/Chrome|CriOS|FxiOS|EdgiOS/.test(ua);
-  const isChromeMobile = /CriOS/.test(ua) || (/Chrome/.test(ua) && /Mobile/.test(ua));
-  const isFirefox = /Firefox|FxiOS/.test(ua);
-  const isEdge = /EdgA|EdgiOS|Edg/.test(ua);
-  const isSamsungBrowser = /SamsungBrowser/.test(ua);
-
-  const hint = $('install-hint');
-  const hintText = $('install-hint-text');
-
-  const dismissed = localStorage.getItem('vl-hint-dismissed');
-  if (dismissed) return;
-
-  if (isIOS && isSafari) {
-    hintText.textContent = 'Safari → Compartir (□↑) → "Añadir a pantalla de inicio" para instalar';
-    hint.classList.add('show');
-  } else if (isIOS && isChromeMobile) {
-    hintText.textContent = 'Chrome iOS → menú (···) → "Añadir a pantalla de inicio"';
-    hint.classList.add('show');
-  } else if (isIOS && isFirefox) {
-    hintText.textContent = 'Firefox iOS → menú (···) → "Instalar"';
-    hint.classList.add('show');
-  } else if (isEdge && isIOS) {
-    hintText.textContent = 'Edge iOS → menú (···) → "Agregar a pantalla de inicio"';
-    hint.classList.add('show');
-  } else if (isChromeMobile || isSamsungBrowser) {
-    // Android Chrome / Samsung — soporta beforeinstallprompt
-    window.addEventListener('beforeinstallprompt', e => {
-      e.preventDefault();
-      hintText.innerHTML = '<strong style="cursor:pointer;text-decoration:underline" onclick="triggerInstall()">Instalar app</strong> → guárdala en tu pantalla de inicio para usarla sin abrir el navegador';
-      hint.classList.add('show');
-      window._installPrompt = e;
-    });
-  } else if (isFirefox) {
-    hintText.textContent = 'Firefox → menú (☰) → "Instalar" para añadir a pantalla de inicio';
-    hint.classList.add('show');
-  }
-}
-
-function triggerInstall() {
-  if (window._installPrompt) {
-    window._installPrompt.prompt();
-    window._installPrompt.userChoice.then(() => {
-      window._installPrompt = null;
-      $('install-hint').classList.remove('show');
-    });
-  }
-}
-
-function dismissInstallHint() {
-  $('install-hint').classList.remove('show');
-  try { localStorage.setItem('vl-hint-dismissed', '1'); } catch {}
-}
-
-function registerServiceWorker() {
-  if (!('serviceWorker' in navigator)) return;
-  // El SW debe estar en el mismo dominio. Si usas Netlify, sube sw.js junto al HTML.
-  navigator.serviceWorker.register('./sw.js').then(reg => {
-    reg.addEventListener('updatefound', () => {
-      const worker = reg.installing;
-      worker.addEventListener('statechange', () => {
-        if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-          showToast('App actualizada — recarga para aplicar', 'success');
-        }
-      });
-    });
-  }).catch(() => {
-    // SW no disponible (archivo único sin servidor) — modo degradado ok
-  });
-}
-
-// ═══════════════════════════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════════════════════════
+// ── INIT ─────────────────────────────────────────────────────────────────────
 function init() {
-  _voices = _synth.getVoices();
+  _voices=synth.getVoices();
   renderAll();
-  onSpeedChange();
-  updateOnlineStatus();
-  detectBrowserAndShowHint();
-  registerServiceWorker();
+  onSpeed();
+  checkOnline();
+  registerSW();
 }
 
-window.addEventListener('online',  updateOnlineStatus);
-window.addEventListener('offline', updateOnlineStatus);
+window.addEventListener('online', checkOnline);
+window.addEventListener('offline', checkOnline);
 window.addEventListener('load', init);
-window.addEventListener('pageshow', () => { _voices = _synth.getVoices(); });
+window.addEventListener('pageshow', ()=>{ _voices=synth.getVoices(); });
 </script>
 </body>
 </html>
